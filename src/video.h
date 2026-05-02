@@ -41,7 +41,6 @@ void setTextMode();
 void waitForVsync();
 void clearFrame(Video *vm);
 void updateFrame(Video *vm, bool vsync = false);
-void setSubRectangleVbufferCopy(Rectangle *rect);
 uint8 *getRenderBuffer(Video *vm);
 
 void setPalFromTab(uint8 colstart, uint8 *paltab, uint16 colnum);

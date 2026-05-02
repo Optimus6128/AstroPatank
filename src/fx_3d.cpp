@@ -29,8 +29,6 @@ static Mesh *objectMesh[NUM_OBJECTS];
 static int renderMethod = RENDER_POLYS;
 static int objectMeshIndex = 11;
 
-static Rectangle totalCoverageBox;
-
 
 static void script3D(Mesh *ms, int t)
 {
@@ -113,82 +111,17 @@ static void setupPalette3D()
 	makeAndSetPal(240,255, 0,0,0, 63,63,63);
 }
 
-static void clearBufferRegion(uint8 *dst, int length, int countY)
-{
-	do {
-		memset(dst, 0, length);
-		dst += SCR_W;
-	} while(--countY !=0);
-}
-
-static void clearBufferRegionAsm(void *dst, int length, int countY)
-{
-	_asm {
-		mov edi,dst
-		mov edx,length
-		shr edx,2
-		mov ebx,countY
-
-		xor eax,eax
-		lineY:
-			push edi
-			mov ecx,edx
-			rep stosd
-			pop edi
-			add edi,SCR_W
-		dec ebx
-		jnz lineY
-	}
-}
-
-static void clearPreviousBuffer(Screen *screen)
-{
-	int x0 = totalCoverageBox.x0;
-	int y0 = totalCoverageBox.y0;
-	int x1 = totalCoverageBox.x1;
-	int y1 = totalCoverageBox.y1;
-
-	CLAMP(x0, 0, SCR_W-1);
-	CLAMP(y0, 0, SCR_H-1);
-	CLAMP(x1, 0, SCR_W-1);
-	CLAMP(y1, 0, SCR_H-1);
-
-	uint8 *dst = (uint8*)screen->data + y0 * SCR_W + x0;
-	const int length = x1 - x0 + 1;
-	const int countY = y1 - y0 + 1;
-
-	#ifdef USE_ASM_BUFFER_MOVES
-		clearBufferRegionAsm(dst, length, countY);
-	#else
-		clearBufferRegion(dst, length, countY);
-	#endif
-
-	setSubRectangleVbufferCopy(&totalCoverageBox);
-
-	totalCoverageBox = Rectangle(INT_MAX, INT_MAX, INT_MIN, INT_MIN);
-}
-
-static void updateTotalCoverageBox(Mesh *ms)
-{
-	Rectangle *meshCovBox = &ms->coverageBox;
-
-	if (meshCovBox->x0 < totalCoverageBox.x0) totalCoverageBox.x0 = meshCovBox->x0;
-	if (meshCovBox->y0 < totalCoverageBox.y0) totalCoverageBox.y0 = meshCovBox->y0;
-	if (meshCovBox->x1 > totalCoverageBox.x1) totalCoverageBox.x1 = meshCovBox->x1;
-	if (meshCovBox->y1 > totalCoverageBox.y1) totalCoverageBox.y1 = meshCovBox->y1;
-
-	totalCoverageBox.x0 = totalCoverageBox.x0 & ~3;
-	totalCoverageBox.x1 = (totalCoverageBox.x1 & ~3) + 3;
-}
-
 static void updateScene3D(Screen *screen, int t)
 {
 	Mesh *ms = objectMesh[objectMeshIndex];
 
 	script3D(ms, t);
 	renderMesh(ms, screen);
+}
 
-	updateTotalCoverageBox(ms);
+static void clearScreen(Screen *screen)
+{
+	memset(screen->data, 0, (screen->width * screen->height * screen->bpp) >> 3);
 }
 
 void fx3dInit(bool onlySetup)
@@ -207,7 +140,7 @@ void fx3dInit(bool onlySetup)
 
 void fx3dRun(Screen *screen, int t)
 {
-	clearPreviousBuffer(screen);
+	clearScreen(screen);
 
 	input3D();
 

@@ -372,7 +372,7 @@ static void renderMeshDots(Mesh *ms, uint8 *vram)
 					*(dst+1) = colorBase + ((fracX1 * fracY0) >> SHADE_BITS);
 				}
 				if (yp < SCR_H - 1) {
-					dst += SCR_BYTE_LENGTH;
+					dst += SCR_LINE_BYTES;
 					*dst = colorBase + ((fracX0 * fracY1) >> SHADE_BITS);
 					if (xp < SCR_W - 1) {
 						*(dst + 1) = colorBase + ((fracX1 * fracY1) >> SHADE_BITS);
@@ -382,29 +382,6 @@ static void renderMeshDots(Mesh *ms, uint8 *vram)
 		}
 		++src;
 	} while(--count != 0);
-}
-
-static void calculateCoverageBox(Mesh *ms)
-{
-	ScreenPoint *src = scrPoints;
-
-	int minX = src->x;
-	int minY = src->y;
-	int maxX = minX;
-	int maxY = minY;
-
-	int count = ms->numVerts;
-	while(--count > 0) {
-		++src;
-		int px = src->x;
-		int py = src->y;
-		if (px < minX) minX = px;
-		if (py < minY) minY = py;
-		if (px > maxX) maxX = px;
-		if (py > maxY) maxY = py;
-	};
-
-	ms->coverageBox = Rectangle(minX >> SCR_BITS, minY >> SCR_BITS, (maxX >> SCR_BITS) + 1, (maxY >> SCR_BITS) + 1);
 }
 
 void renderMesh(Mesh *ms, Screen *screen)
@@ -420,8 +397,6 @@ void renderMesh(Mesh *ms, Screen *screen)
 	}
 
 	translateAndProjectMesh(ms);
-
-	calculateCoverageBox(ms);
 
 	switch (ms->renderMode) {
 		case RENDER_DOTS:

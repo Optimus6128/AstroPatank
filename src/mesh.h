@@ -26,8 +26,6 @@ typedef struct Mesh
 	int gridRange;
 
 	Vec3 pos, rot;
-
-	Rectangle coverageBox;
 }Mesh;
 
 

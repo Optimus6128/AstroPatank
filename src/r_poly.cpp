@@ -106,7 +106,7 @@ static inline void fillScanlines(uint8 color, uint8 *vram)
 			}
 		#endif
 
-		dstY += SCR_BYTE_LENGTH;
+		dstY += SCR_LINE_BYTES;
 	};
 }
 

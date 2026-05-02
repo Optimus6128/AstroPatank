@@ -13,9 +13,6 @@ static uint8 *TXTptr = (uint8*)0xB8000;
 
 static Video vmodes[VMODES_NUM];
 
-static bool doSubRectangleVbufferCopy = false;
-static Rectangle subRectangleVbufferCopy;
-
 
 void initVideoModeInfo()
 {
@@ -111,72 +108,6 @@ void clearFrame(Video *vm)
 	memset(vram, 0, size);
 }
 
-void setSubRectangleVbufferCopy(Rectangle *rect)
-{
-	if (rect) {
-		subRectangleVbufferCopy = Rectangle(rect->x0, rect->y0, rect->x1, rect->y1);
-		doSubRectangleVbufferCopy = true;
-	} else {
-		doSubRectangleVbufferCopy = false;
-	}
-}
-
-static void copyBufferRegionAsm(void *src, void *dst, int length, int countY)
-{
-	_asm {
-		mov esi,src
-		mov edi,dst
-		mov edx,length
-		mov eax,SCR_W
-		sub eax,edx
-		shr edx,2
-		mov ebx,countY
-
-		lineY:
-			mov ecx,edx
-			rep movsd
-			add esi,eax
-			add edi,eax
-		dec ebx
-		jnz lineY
-	}
-}
-
-static void copyBufferRegion(uint8 *src, uint8 *dst, int length, int countY)
-{
-	do {
-		memcpy(dst, src, length);
-		src += SCR_W;
-		dst += SCR_W;
-	} while(--countY !=0);
-}
-
-void copySubRectangleVbufferToFrame(Video *vm)
-{
-	int x0 = subRectangleVbufferCopy.x0;
-	int y0 = subRectangleVbufferCopy.y0;
-	int x1 = subRectangleVbufferCopy.x1;
-	int y1 = subRectangleVbufferCopy.y1;
-
-	CLAMP(x0, 0, SCR_W-1);
-	CLAMP(y0, 0, SCR_H-1);
-	CLAMP(x1, 0, SCR_W-1);
-	CLAMP(y1, 0, SCR_H-1);
-
-	int vramOffset = y0 * SCR_W + x0;
-	uint8 *src = vm->buffer + vramOffset;
-	uint8 *dst = vm->vram + vramOffset;
-
-	const int length = x1 - x0 + 1;
-	const int countY = y1 - y0 + 1;
-
-	#ifdef USE_ASM_BUFFER_MOVES
-		copyBufferRegionAsm(src, dst, length, countY);
-	#else
-		copyBufferRegion(src, dst, length, countY);
-	#endif
-}
-
 void updateFrame(Video *vm, bool vsync)
 {
 	if (vsync) waitForVsync();
@@ -184,14 +115,9 @@ void updateFrame(Video *vm, bool vsync)
 
 	if (vm->vesa) {
 		copyBufferToSvga(vm);
-	}
-	else {
-		if (!doSubRectangleVbufferCopy) {
-			const uint32 size = vm->width * vm->height;
-			memcpy(vm->vram, vm->buffer, size);
-		} else {
-			copySubRectangleVbufferToFrame(vm);
-		}
+	} else {
+		const uint32 size = vm->width * vm->height;
+		memcpy(vm->vram, vm->buffer, size);
 	}
 }
 

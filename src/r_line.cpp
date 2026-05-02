@@ -18,7 +18,7 @@ static inline void drawLineBressenhamSlopeX(int x0, int y0, int x1, int y1, uint
     int dx = x1 - x0;
     int dy = y1 - y0;
 
-    int vy = SCR_BYTE_LENGTH;
+    int vy = SCR_LINE_BYTES;
     if (dy < 0) {
         dy = -dy;
         vy = -vy;
@@ -63,7 +63,7 @@ static inline void drawLineBressenhamSlopeY(int x0, int y0, int x1, int y1, uint
     int dx = x1 - x0;
     int dy = y1 - y0;
 
-    int vx = 1, vy = SCR_BYTE_LENGTH;
+    int vx = 1, vy = SCR_LINE_BYTES;
     if (dx < 0) {
         dx = -dx;
         vx = -1;
@@ -158,7 +158,7 @@ static inline void drawAntialiasedLineSlopeX(int i0, int i1, int p0, int d, uint
 		uint8 *dst = vram + VRAM_PIXEL_OFFSET(x0,yp);
 		*dst |= colBase + ((c0 * frac0) >> SCR_BITS);
 		if (yp < SCR_H - 1) {
-			*(dst + SCR_BYTE_LENGTH) |= colBase + ((c1 * frac0) >> SCR_BITS);
+			*(dst + SCR_LINE_BYTES) |= colBase + ((c1 * frac0) >> SCR_BITS);
 		}
 
 		y += ((frac0 * d) >> SCR_BITS);
@@ -175,7 +175,7 @@ static inline void drawAntialiasedLineSlopeX(int i0, int i1, int p0, int d, uint
 
 		*dst = colBase + c0;
 		if (yp < SCR_H - 1) {
-			*(dst + SCR_BYTE_LENGTH) = colBase + c1;
+			*(dst + SCR_LINE_BYTES) = colBase + c1;
 		}
 
 		y += d;
@@ -191,7 +191,7 @@ static inline void drawAntialiasedLineSlopeX(int i0, int i1, int p0, int d, uint
 		uint8 *dst = vram + VRAM_PIXEL_OFFSET(x1+1,yp);
 		*dst |= colBase + ((c0 * frac1) >> SCR_BITS);
 		if (yp < SCR_H - 1) {
-			*(dst + SCR_BYTE_LENGTH) |= colBase + ((c1 * frac1) >> SCR_BITS);
+			*(dst + SCR_LINE_BYTES) |= colBase + ((c1 * frac1) >> SCR_BITS);
 		}
 	}
 }
@@ -223,7 +223,7 @@ static inline void drawAntialiasedLineSlopeY(int i0, int i1, int p0, int d, uint
 
 		x += ((frac0 * d) >> SCR_BITS);
 		y0++;
-		vram += SCR_BYTE_LENGTH;
+		vram += SCR_LINE_BYTES;
 	}
 	if (frac1) y1--;
 
@@ -237,7 +237,7 @@ static inline void drawAntialiasedLineSlopeY(int i0, int i1, int p0, int d, uint
 			*(vram + xp + 1) = colBase + c1;
 		}
 
-		vram += SCR_BYTE_LENGTH;
+		vram += SCR_LINE_BYTES;
 		x += d;
 	}
 

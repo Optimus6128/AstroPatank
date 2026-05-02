@@ -26,7 +26,7 @@ static void drawPalette(uint8 *vram)
 		for (int x=0; x<256; ++x) {
 			*(vram + x) = x;
 		}
-		vram += SCR_BYTE_LENGTH;
+		vram += SCR_LINE_BYTES;
 	}
 }
 
