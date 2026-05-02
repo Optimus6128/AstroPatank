@@ -1,0 +1,118 @@
+	section .text
+	CPU 386
+	bits 32
+
+
+	SCR_W equ 320
+	SCR_H equ 200
+	SCR_BPP equ 8
+	SCR_BYTE_LENGTH equ ((SCR_W * SCR_BPP) / 8)
+
+	SCANLINE_STRUCT_SIZE equ 8	; sizeof(Scanline), if this changes and not be 1,2,4,8 you are f****ed
+
+
+	extern _scanline
+	extern _yScanlineMin
+	extern _yScanlineMax
+
+	global fillScanlinesAsm_
+
+segment _TEXT use32 class=CODE
+fillScanlinesAsm_:
+	pusha
+
+		mov edi,edx ; vram
+
+		movzx ecx,al
+		mov ch,cl
+		mov eax,ecx
+		shl eax,16
+		or eax,ecx		; uint32 color32 = (color << 24) | (color << 16) | (color << 8) | color;
+
+		mov ebx,[_yScanlineMin]
+		mov ebp,[_yScanlineMax]
+		sub ebp,ebx			; store yScanlineMax - yScanlineMin in EBP
+
+		test ebp,ebp
+		js aman
+		jz aman
+
+		lea esi,[_scanline + SCANLINE_STRUCT_SIZE * ebx]
+
+		mov ecx,ebx
+		shl ebx,8
+		shl ecx,6
+		add ebx,ecx		; y * 320 = y * 256 + y * 64 (next time I'll just MUL for any resolution width)
+		add edi,ebx		; uint8 *dstY = vram + VRAM_PIXEL_OFFSET(0,yScanlineMin);
+
+		; In this point EBP=countY, EAX=color32, ESI=&scanline[yScanlineMin], EDI = &vram[yScanlineMin*320]
+		; EBX,ECX,EDX are free now. ECX will be altered/used for REP STOSD
+
+		xor edx,edx
+
+		scanlineLoopY:
+			push edi
+
+			mov ebx,[esi]	; BX=x0, (BX>>16)=x1
+			add esi,SCANLINE_STRUCT_SIZE
+
+			mov ecx,ebx
+			shr ecx,16		; BX=x0, CX=x1
+
+			; if (x0 < 0) x0 = 0;
+			test bx,bx
+			jns noNegX0
+				xor bx,bx
+			noNegX0:
+			mov dx,bx
+			add edi,edx
+
+			; if (x1 > SCR_W - 1) x1 = SCR_W - 1;
+			cmp cx,SCR_W
+			jc noClampX1
+				mov cx,SCR_W-1
+			noClampX1:
+
+			sub cx,bx	; CX = length
+
+			jle afterRenderScanline
+			cmp cx,5
+			jc tinyWriteBeforeNextLine
+
+			and bl,3	; Let's see left side if we need to write bytes
+			jz noLeftPixels
+				mov bh,4
+				sub bh,bl
+				mov bl,bh
+				pixL:
+					stosb
+					dec bh
+				jnz pixL
+				sub cx,bx
+			noLeftPixels:
+
+			test cx,cx
+			js afterRenderScanline
+			mov dx,cx
+			cmp cx,3
+			jc noThickPixels
+				shr cx,2
+				rep stosd
+			noThickPixels:
+
+			and dl,3
+			jz afterRenderScanline
+				mov cl,dl
+			tinyWriteBeforeNextLine:
+				rep stosb
+
+			afterRenderScanline:
+			pop edi
+			add edi,SCR_BYTE_LENGTH
+			dec ebp
+		jnz scanlineLoopY
+aman:
+
+	popa
+
+	ret

@@ -1,0 +1,8 @@
+demo.exe
+*.obj
+*.err
+*.sym
+*.map
+*.lk1
+std*.txt
+watcom
