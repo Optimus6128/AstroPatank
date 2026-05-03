@@ -2,11 +2,17 @@
 	CPU 386
 	bits 32
 
+	%define SCR_UNCHAINED
 
 	SCR_W equ 320
 	SCR_H equ 200
 	SCR_BPP equ 8
-	SCR_BYTE_LENGTH equ ((SCR_W * SCR_BPP) / 8)
+
+	%ifdef SCR_UNCHAINED
+		SCR_BYTE_LENGTH equ (((SCR_W / 4) * SCR_BPP) / 8)
+	%else
+		SCR_BYTE_LENGTH equ ((SCR_W * SCR_BPP) / 8)
+	%endif
 
 	SCANLINE_STRUCT_SIZE equ 8	; sizeof(Scanline), if this changes and not be 1,2,4,8 you are f****ed
 
@@ -40,9 +46,16 @@ fillScanlinesAsm_:
 		lea esi,[_scanline + SCANLINE_STRUCT_SIZE * ebx]
 
 		mov ecx,ebx
-		shl ebx,8
-		shl ecx,6
-		add ebx,ecx		; y * 320 = y * 256 + y * 64 (next time I'll just MUL for any resolution width)
+		%ifdef SCR_UNCHAINED
+			; y * 80 = y * 64 + y * 16
+			shl ebx,6
+			shl ecx,4
+		%else
+			; y * 320 = y * 256 + y * 64
+			shl ebx,8
+			shl ecx,6
+		%endif
+		add ebx,ecx
 		add edi,ebx		; uint8 *dstY = vram + VRAM_PIXEL_OFFSET(0,yScanlineMin);
 
 		; In this point EBP=countY, EAX=color32, ESI=&scanline[yScanlineMin], EDI = &vram[yScanlineMin*320]

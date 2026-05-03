@@ -44,7 +44,8 @@ static void initSystem()
 
 	initVideoModeInfo();
 
-	video = setVideoMode(SCR_W, SCR_H, SCR_BPP, true);
+	//video = setVideoMode(SCR_W, SCR_H, SCR_BPP, true);
+	video = setVideoMode(SCR_W, SCR_H, SCR_BPP, false, true);
 	if (video==0) {
 		printf("Video Mode not found\n");
 		return;

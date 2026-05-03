@@ -6,8 +6,16 @@
 #define SCR_W 320
 #define SCR_H 200
 #define SCR_BPP 8
-#define SCR_LINE_BYTES ((SCR_W * SCR_BPP) / 8)
-#define VRAM_PIXEL_OFFSET(x,y) ((y) * SCR_LINE_BYTES + (x))
+
+#define SCR_UNCHAINED
+
+#ifndef SCR_UNCHAINED
+	#define SCR_LINE_BYTES ((SCR_W * SCR_BPP) / 8)
+	#define VRAM_PIXEL_OFFSET(x,y) ((y) * SCR_LINE_BYTES + (x))
+#else
+	#define SCR_LINE_BYTES (((SCR_W / 4) * SCR_BPP) / 8)
+	#define VRAM_PIXEL_OFFSET(x,y) ((y) * SCR_LINE_BYTES + ((x >> 2)))
+#endif
 
 
 typedef struct Screen
