@@ -70,7 +70,7 @@ static void drawFont8(int posX, int posY, uint8 decimal, Video *video)
 		scrWidth >>= 2;
 	}
 
-	uint8 *dst = (uint8*)video->vram + posY * scrWidth + posX;
+	uint8 *dst = (uint8*)getRenderBuffer(video) + posY * scrWidth + posX;
 
 	for (int y = 0; y<TINY_FONT_HEIGHT; y++) {
 		for (int x = 0; x<TINY_FONT_WIDTH; ++x) {
@@ -93,7 +93,7 @@ void drawNumber(int posX, int posY, int number, Video *video)
 		lineLength >>= 2;
 		posX >>= 2;
 	}
-	uint8 *dst = (uint8*)video->vram + posY * scrWidth + posX;
+	uint8 *dst = (uint8*)getRenderBuffer(video) + posY * scrWidth + posX;
 
 	// Clear area (for VGA only fps when not erasing full framebuffer)
 	for (int y=0; y<5; ++y) {

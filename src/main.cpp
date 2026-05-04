@@ -79,6 +79,7 @@ int main(int argc, char **argv)
 	demoInit(selectedPart);
 
 	while(!buttonsHeld.escape) {
+		screen.data = getRenderBuffer(video);
 		demoRun(&screen, getTime());
 		drawFps(video);
 		updateFrame(video, vsync);

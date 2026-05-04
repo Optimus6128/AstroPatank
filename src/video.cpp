@@ -13,6 +13,8 @@
 static uint8 *VGAptr = (uint8*)0xA0000;
 static uint8 *TXTptr = (uint8*)0xB8000;
 
+static uint8 vramPage = 0;
+
 static Video vmodes[VMODES_NUM];
 
 void initVideoModeInfo()
@@ -181,6 +183,15 @@ void clearFrame(Video *vm)
 void updateFrame(Video *vm, bool vsync)
 {
 	if (vsync) waitForVsync();
+
+	if (vm->unchained) {
+		outp(0x3D4, 0x0C);
+		outp(0x3D5, (vramPage * 16384) >> 8);
+
+		vramPage = (vramPage + 1) & 3;	// quad buffer
+		return;
+	}
+
 	if (vm->buffer==0) return;
 
 	if (vm->vesa) {
@@ -193,10 +204,14 @@ void updateFrame(Video *vm, bool vsync)
 
 uint8 *getRenderBuffer(Video *vm)
 {
-	if (vm->buffer==0)
+	if (vm->unchained) {
+		return vm->vram + vramPage * 16384;
+	}
+	if (vm->buffer==0) {
 		return vm->vram;
-	else
+	} else {
 		return vm->buffer;
+	}
 }
 
 void waitForVsync()
