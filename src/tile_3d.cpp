@@ -22,6 +22,18 @@ static TilemapRange tilemapRange[TILEMAP_LAYERS];
 void tilemap3dInit()
 {
 	memset(tilemap3d, 0, sizeof(tilemap3d));
+
+	for (int i=0; i<TILEMAP_LAYERS; ++i) {
+		uint8 n = (1 << (1+i)) - 1;
+		uint8 *dst = &tilemap3d[i*TILEMAP_LAYER_SIZE];
+		for (int y=0; y<TILEMAP_HEIGHT; ++y) {
+			for (int x=0; x<TILEMAP_WIDTH; ++x) {
+				uint8 c = 0;
+				if (!(x & n) && !(y & n)) c = 1;
+				*dst++ = c;
+			}
+		}
+	}
 }
 
 static void drawDot(int xs, int ys, uint8 color, uint8 *vram)
@@ -77,13 +89,17 @@ void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen)
 	if (color > 15) color = 15;
 
 	int py = -pos->y;
+	uint8 *src = &tilemap3d[layer*TILEMAP_LAYER_SIZE];
 	for (int y=0; y<TILEMAP_HEIGHT; ++y) {
 		if (py > -edgeY && py < edgeY) {
 			int ys = (py << PROJ_BITS) / pz + SCR_H / 2;
 			for (int x=x0; x<x1; ++x) {
-				drawDot(xsData[x],ys, color, vram);
+				if (src[x]) {
+					drawDot(xsData[x],ys, color, vram);
+				}
 			}
 		}
+		src += TILEMAP_WIDTH;
 		py += TILE_SIZE;
 	}
 }
