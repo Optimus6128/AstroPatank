@@ -32,6 +32,35 @@ static void drawDot(int xs, int ys, uint8 color, uint8 *vram)
 	}
 }
 
+
+static int xsData[TILEMAP_WIDTH];
+static int x0,x1;
+
+static void cacheScreenXdata(Vec3 *pos, int edgeX, int edgeY, int pz)
+{
+	x0=0;
+	x1=TILEMAP_WIDTH;
+
+	bool xIsIn = false;
+	int px = -pos->x;
+	for (int x=0; x<TILEMAP_WIDTH; ++x) {
+		if (px > -edgeX && px < edgeX) {
+			int xs = (px << PROJ_BITS) / pz + SCR_W / 2;
+			xsData[x] = xs;
+			if (!xIsIn) {
+				x0 = x;
+				xIsIn = true;
+			}
+		} else {
+			if (xIsIn) {
+				x1 = x;
+				xIsIn = false;
+			}
+		}
+		px += TILE_SIZE;
+	}
+}
+
 void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen)
 {
 	uint8 *tmap = &tilemap3d[layer * TILEMAP_LAYER_SIZE];
@@ -41,17 +70,18 @@ void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen)
 	const int edgeY = tilemapRange[layer].edgeY;
 
 	int pz = pos->z + TILE_SIZE * (TILEMAP_LAYERS - layer);
+
+	cacheScreenXdata(pos, edgeX, edgeY, pz);
+
+	uint8 color = ((layer+1) * 16) / TILEMAP_LAYERS;
+	if (color > 15) color = 15;
+
 	int py = -pos->y;
 	for (int y=0; y<TILEMAP_HEIGHT; ++y) {
 		if (py > -edgeY && py < edgeY) {
 			int ys = (py << PROJ_BITS) / pz + SCR_H / 2;
-			int px = -pos->x;
-			for (int x=0; x<TILEMAP_WIDTH; ++x) {
-				if (px > -edgeX && px < edgeX) {
-					int xs = (px << PROJ_BITS) / pz + SCR_W / 2;
-					drawDot(xs,ys, layer*4+3, vram);
-				}
-				px += TILE_SIZE;
+			for (int x=x0; x<x1; ++x) {
+				drawDot(xsData[x],ys, color, vram);
 			}
 		}
 		py += TILE_SIZE;
@@ -68,6 +98,16 @@ static void updateTilemapEdges(Vec3 *pos)
 	}
 }
 
+//262-1841 (131072)
+//407-2121
+/*static void printSomething()
+{
+	for (int i=0; i<TILEMAP_LAYERS; ++i) {
+		printf("%d,%d   ", tilemapRange[i].edgeX, tilemapRange[i].edgeY);
+	}
+	printf("\n");
+}*/
+
 void renderTilemap3d(Vec3 *pos, Screen *screen)
 {
 	updateTilemapEdges(pos);
@@ -75,4 +115,6 @@ void renderTilemap3d(Vec3 *pos, Screen *screen)
 	for (int i=0; i<TILEMAP_LAYERS; ++i) {
 		renderTilemap3dLayer(pos, i, screen);
 	}
+
+	//printSomething();
 }
