@@ -75,6 +75,9 @@ static void input3D()
 	//static bool rightPressed = false;
 	//static bool upPressed = false;
 	//static bool downPressed = false;
+	
+	static bool rPrevPressed = false;
+	static bool rNextPressed = false;
 
 	if (buttonsHeld.left) {// & !leftPressed) {
 		playerPos.x -= playerSpeed;
@@ -96,6 +99,17 @@ static void input3D()
 	if (buttonsHeld.zoomOut) {
 		playerPos.z += 4*playerSpeed;
 	}
+
+	if (buttonsHeld.renderPrev & !rPrevPressed) {
+		advTileRenderType(false);
+	}
+	if (buttonsHeld.renderNext & !rNextPressed) {
+		advTileRenderType(true);
+	}
+
+	rPrevPressed = buttonsHeld.renderPrev;
+	rNextPressed = buttonsHeld.renderNext;
+	
 
 	//leftPressed = buttonsHeld.left;
 	//rightPressed = buttonsHeld.right;

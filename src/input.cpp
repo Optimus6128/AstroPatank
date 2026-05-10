@@ -84,6 +84,7 @@ static void keyCommands()
 		break;
 
 		case 30:	// A
+			buttonsHeld.renderPrev = !released;
 		break;
 
 		case 31:	// S
@@ -92,6 +93,7 @@ static void keyCommands()
 		break;
 
 		case 32:	// D
+			buttonsHeld.renderNext = !released;
 		break;
 
 		case 57:	// Space

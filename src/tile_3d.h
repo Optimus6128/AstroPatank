@@ -17,4 +17,6 @@
 void tilemap3dInit();
 void renderTilemap3d(Vec3 *pos, Screen *screen);
 
+void advTileRenderType(bool inc);
+
 #endif

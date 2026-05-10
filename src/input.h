@@ -11,6 +11,8 @@ typedef struct Buttons
 	bool down;
 	bool zoomIn;
 	bool zoomOut;
+	bool renderPrev;
+	bool renderNext;
 	bool fire;
 	bool escape;
 }Buttons;

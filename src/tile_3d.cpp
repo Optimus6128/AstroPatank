@@ -12,6 +12,19 @@
 #include "video.h"
 #include "mathutil.h"
 
+enum {
+	TILE_RENDER_DOTS,
+	TILE_RENDER_LINES,
+	TILE_RENDER_QUADS,
+	TILE_RENDER_MESH,
+	TILE_RENDER_COUNT
+};
+
+typedef struct TilemapPos
+{
+	int x,y;
+	int xs,ys;
+} TilemapPos;
 
 typedef struct TilemapRange
 {
@@ -25,15 +38,29 @@ static TilemapRange tilemapRange[TILEMAP_LAYERS];
 
 static Vec3 tilePos[TILEMAP_LAYER_SIZE];
 
-static int xsData[TILEMAP_WIDTH];
-static int ysData[TILEMAP_HEIGHT];
+static TilemapPos tmapPos[TILEMAP_WIDTH];
+
+
+
+static int tileRenderType = TILE_RENDER_DOTS;
+
+void advTileRenderType(bool inc)
+{
+	if (inc) {
+		tileRenderType++;
+		if (tileRenderType >= TILE_RENDER_COUNT) tileRenderType = 0;
+	} else {
+		tileRenderType--;
+		if (tileRenderType < 0) tileRenderType = TILE_RENDER_COUNT - 1;
+	}
+}
 
 void tilemap3dInit()
 {
 	memset(tilemap3d, 0, sizeof(tilemap3d));
 
 	for (int i=0; i<TILEMAP_LAYERS; ++i) {
-		uint8 n = (1 << (0+i)) - 1;
+		uint8 n = (1 << (1+i)) - 1;
 		uint8 *dst = &tilemap3d[i*TILEMAP_LAYER_SIZE];
 		for (int y=0; y<TILEMAP_HEIGHT; ++y) {
 			for (int x=0; x<TILEMAP_WIDTH; ++x) {
@@ -60,12 +87,36 @@ static void drawQuad(int x0, int y0, int x1, int y1, uint8 color, uint8 *vram)
 	CLAMP(y0,0,SCR_H-1);
 	CLAMP(y1,0,SCR_H-1);
 
-	for (int y=y0; y<y1; ++y) {
-		uint8 *dst = vram + VRAM_PIXEL_OFFSET((x0>>UNCHAINED_BITS),y);
-		for (int x=x0; x<x1; ++x) {
-			*dst++ = color;
+	uint8 *dstY = vram + VRAM_PIXEL_OFFSET(0,y0);
+	uint32 color32 = (color << 24) | (color << 16) | (color << 8) | color;
+
+	int countY = y1 - y0;
+	while (countY-- > 0) {
+		uint8 *dst = dstY + (x0>>UNCHAINED_BITS);
+		int16 length = x1 - x0;
+
+		int16 xl = x0 & 3;
+		if (xl) {
+			int16 l = 4-xl;
+			length -= l;
+			while (l-- != 0) {
+				*dst++ = color;
+			};
 		}
-	}
+
+		uint32 *dst32 = (uint32*)dst;
+		while(length > 3) {
+			*dst32++ = color32;
+			length-=4;
+		};
+
+		dst = (uint8*)dst32;
+		while(length-- > 0) {
+			*dst++ = color;
+		};
+
+		dstY += SCR_LINE_BYTES;
+	};
 }
 
 static void cacheScreenData(Vec3 *pos, TilemapRange *tmapRange, int layerZ)
@@ -77,13 +128,15 @@ static void cacheScreenData(Vec3 *pos, TilemapRange *tmapRange, int layerZ)
 
 	int px = -pos->x + x0 * TILE_SIZE;
 	for (int x=x0; x<x1; ++x) {
-		xsData[x] = (px << PROJ_BITS) / layerZ + SCR_W / 2;
+		tmapPos[x].x = px;
+		tmapPos[x].xs = (px << PROJ_BITS) / layerZ + SCR_W / 2;
 		px += TILE_SIZE;
 	}
 
 	int py = -pos->y + y0 * TILE_SIZE;
 	for (int y=y0; y<y1; ++y) {
-		ysData[y] = (py << PROJ_BITS) / layerZ + SCR_H / 2;
+		tmapPos[y].y = py;
+		tmapPos[y].ys = (py << PROJ_BITS) / layerZ + SCR_H / 2;
 		py += TILE_SIZE;
 	}
 }
@@ -128,44 +181,82 @@ static void updateTilemapEdges(Vec3 *pos, uint8 layer)
 	cacheScreenData(pos, tmapRange, layerZ);
 }
 
-static void renderTilemap3dLayerQuads(uint8 layer, Screen *screen)
+static void renderTilemap3dLayerQuads(int x0, int y0, int x1, int y1, uint8 color, int tileScrSize, uint8 *tmap, uint8 *vram)
 {
+	for (int y=y0; y<y1; ++y) {
+		const int ys = tmapPos[y].ys + 1;
+		for (int x=x0; x<x1; ++x) {
+			if (tmap[x]) {
+				const int xs = tmapPos[x].xs + 1;
+				drawQuad(xs,ys, xs+tileScrSize, ys+tileScrSize, color, vram);
+			}
+		}
+		tmap += TILEMAP_WIDTH;
+	}
 }
 
-static void renderTilemap3dLayerDots(uint8 layer, Screen *screen)
+static void renderTilemap3dLayerLines(int x0, int y0, int x1, int y1, uint8 color, int tileScrSize, uint8 *tmap, uint8 *vram)
 {
+	for (int y=y0; y<y1; ++y) {
+		const int ys = tmapPos[y].ys + 8;
+		for (int x=x0; x<x1; ++x) {
+			if (tmap[x]) {
+				const int xs = tmapPos[x].xs + 8;
+				drawQuad(xs,ys, xs+tileScrSize, ys+tileScrSize, color, vram);
+			}
+		}
+		tmap += TILEMAP_WIDTH;
+	}
+}
+
+static void renderTilemap3dLayerDots(int x0, int y0, int x1, int y1, uint8 color, uint8 *tmap, uint8 *vram)
+{
+	for (int y=y0; y<y1; ++y) {
+		const int ys = tmapPos[y].ys;
+		for (int x=x0; x<x1; ++x) {
+			if (tmap[x]) {
+				drawDot(tmapPos[x].xs, ys, color, vram);
+			}
+		}
+		tmap += TILEMAP_WIDTH;
+	}
 }
 
 static void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen)
 {
-	uint8 *tmap = &tilemap3d[layer * TILEMAP_LAYER_SIZE];
-	uint8 *vram = (uint8*)screen->data;
-
 	TilemapRange *tmapRange = &tilemapRange[layer];
 	const int x0 = tmapRange->x0;
 	const int x1 = tmapRange->x1;
 	const int y0 = tmapRange->y0;
 	const int y1 = tmapRange->y1;
 
-	int layerZ = pos->z + TILE_SIZE * (TILEMAP_LAYERS - layer);
-	int diffX = (TILE_SIZE << PROJ_BITS) / layerZ;
-	int diffY = (TILE_SIZE << PROJ_BITS) / layerZ;
-
 	uint8 color = ((layer+1) * 16) / TILEMAP_LAYERS;
 	if (color > 15) color = 15;
 
-	uint8 *src = &tilemap3d[layer*TILEMAP_LAYER_SIZE + y0*TILEMAP_WIDTH];
-	for (int y=y0; y<y1; ++y) {
-		const int ys = ysData[y];
-		for (int x=x0; x<x1; ++x) {
-			if (src[x]) {
-				const int xs = xsData[x];
+	uint8 *tmap = &tilemap3d[layer*TILEMAP_LAYER_SIZE + y0*TILEMAP_WIDTH];
+	uint8 *vram = (uint8*)screen->data;
 
-				//drawDot(xs, ys, color, vram);
-				drawQuad(xs,ys, xs+diffX, ys+diffY, color, vram);
-			}
-		}
-		src += TILEMAP_WIDTH;
+	int layerZ, tileScrSize;
+	if (tileRenderType > TILE_RENDER_DOTS) {
+		layerZ = pos->z + TILE_SIZE * (TILEMAP_LAYERS - layer);
+		tileScrSize = (TILE_SIZE << PROJ_BITS) / layerZ - 2;
+	}
+
+	switch(tileRenderType) {
+		case TILE_RENDER_DOTS:
+			renderTilemap3dLayerDots(x0,y0,x1,y1,color,tmap,vram);
+		break;
+
+		case TILE_RENDER_LINES:
+			renderTilemap3dLayerLines(x0,y0,x1,y1,color,tileScrSize,tmap,vram);
+		break;
+
+		case TILE_RENDER_QUADS:
+			renderTilemap3dLayerQuads(x0,y0,x1,y1,color,tileScrSize,tmap,vram);
+		break;
+
+		case TILE_RENDER_MESH:
+		break;
 	}
 }
 
