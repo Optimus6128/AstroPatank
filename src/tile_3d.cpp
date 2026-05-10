@@ -8,34 +8,32 @@
 #include "tile_3d.h"
 #include "engine.h"
 #include "render.h"
+#include "vector.h"
 #include "video.h"
+#include "mathutil.h"
+
 
 typedef struct TilemapRange
 {
-	int edgeX;
-	int edgeY;
+	int edgeX, edgeY;
+	int x0,x1,y0,y1;
 } TilemapRange;
-
-typedef struct Point2D
-{
-	int x,y;
-} Point2D;
 
 
 static uint8 tilemap3d[TILEMAP_SIZE];
 static TilemapRange tilemapRange[TILEMAP_LAYERS];
 
-//static Point2D screenPoints[TILEMAP_SIZE];
+static Vec3 tilePos[TILEMAP_LAYER_SIZE];
 
 static int xsData[TILEMAP_WIDTH];
-static int x0,x1;
+static int ysData[TILEMAP_HEIGHT];
 
 void tilemap3dInit()
 {
 	memset(tilemap3d, 0, sizeof(tilemap3d));
 
 	for (int i=0; i<TILEMAP_LAYERS; ++i) {
-		uint8 n = (1 << (1+i)) - 1;
+		uint8 n = (1 << (0+i)) - 1;
 		uint8 *dst = &tilemap3d[i*TILEMAP_LAYER_SIZE];
 		for (int y=0; y<TILEMAP_HEIGHT; ++y) {
 			for (int x=0; x<TILEMAP_WIDTH; ++x) {
@@ -55,111 +53,130 @@ static void drawDot(int xs, int ys, uint8 color, uint8 *vram)
 	}
 }
 
-static void cacheScreenXdata(Vec3 *pos, int edgeX, int edgeY, int pz)
+static void drawQuad(int x0, int y0, int x1, int y1, uint8 color, uint8 *vram)
 {
-	x0=0;
-	x1=TILEMAP_WIDTH;
+	CLAMP(x0,0,SCR_W-1);
+	CLAMP(x1,0,SCR_W-1);
+	CLAMP(y0,0,SCR_H-1);
+	CLAMP(y1,0,SCR_H-1);
 
-	bool xIsIn = false;
-	int px = -pos->x;
-	for (int x=0; x<TILEMAP_WIDTH; ++x) {
-		if (px > -edgeX && px < edgeX) {
-			int xs = (px << PROJ_BITS) / pz + SCR_W / 2;
-			xsData[x] = xs;
-			if (!xIsIn) {
-				x0 = x;
-				xIsIn = true;
-			}
-		} else {
-			if (xIsIn) {
-				x1 = x;
-				xIsIn = false;
-			}
+	for (int y=y0; y<y1; ++y) {
+		uint8 *dst = vram + VRAM_PIXEL_OFFSET((x0>>UNCHAINED_BITS),y);
+		for (int x=x0; x<x1; ++x) {
+			*dst++ = color;
 		}
-		px += TILE_SIZE;
-	}
-
-	if (x1 > 0 && x1 < TILEMAP_WIDTH) {
-		xsData[x1] = xsData[x1-1];	// just clamp the right edge
 	}
 }
 
-void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen)
+static void cacheScreenData(Vec3 *pos, TilemapRange *tmapRange, int layerZ)
 {
-	ScreenPoint p0, p1, p2, p3;
+	int x0 = tmapRange->x0;
+	int x1 = tmapRange->x1;
+	int y0 = tmapRange->y0;
+	int y1 = tmapRange->y1;
 
+	int px = -pos->x + x0 * TILE_SIZE;
+	for (int x=x0; x<x1; ++x) {
+		xsData[x] = (px << PROJ_BITS) / layerZ + SCR_W / 2;
+		px += TILE_SIZE;
+	}
+
+	int py = -pos->y + y0 * TILE_SIZE;
+	for (int y=y0; y<y1; ++y) {
+		ysData[y] = (py << PROJ_BITS) / layerZ + SCR_H / 2;
+		py += TILE_SIZE;
+	}
+}
+
+static void findTilemapExtends(int posI, int iRange, int edgeI, int *tmapI0, int *tmapI1)
+{
+	int i0=0;
+	int i1=iRange;
+
+	bool isIn = false;
+	for (int i=0; i<iRange; ++i) {
+		if (posI > -edgeI && posI < edgeI) {
+			if (!isIn) {
+				i0 = i;
+				isIn = true;
+			}
+		} else {
+			if (isIn) {
+				i1 = i;
+				isIn = false;
+			}
+		}
+		posI += TILE_SIZE;
+	}
+
+	if (i0 > 0) i0--;
+
+	*tmapI0 = i0;
+	*tmapI1 = i1;
+}
+
+static void updateTilemapEdges(Vec3 *pos, uint8 layer)
+{
+	TilemapRange *tmapRange = &tilemapRange[layer];
+	int layerZ = pos->z + TILE_SIZE * (TILEMAP_LAYERS - layer);
+	tmapRange->edgeX = (SCR_W/2 * layerZ) >> PROJ_BITS;
+	tmapRange->edgeY = (SCR_H/2 * layerZ) >> PROJ_BITS;
+
+	findTilemapExtends(-pos->x, TILEMAP_WIDTH, tmapRange->edgeX, &tmapRange->x0, &tmapRange->x1);
+	findTilemapExtends(-pos->y, TILEMAP_HEIGHT, tmapRange->edgeY, &tmapRange->y0, &tmapRange->y1);
+
+	cacheScreenData(pos, tmapRange, layerZ);
+}
+
+static void renderTilemap3dLayerQuads(uint8 layer, Screen *screen)
+{
+}
+
+static void renderTilemap3dLayerDots(uint8 layer, Screen *screen)
+{
+}
+
+static void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen)
+{
 	uint8 *tmap = &tilemap3d[layer * TILEMAP_LAYER_SIZE];
 	uint8 *vram = (uint8*)screen->data;
 
-	const int edgeX = tilemapRange[layer].edgeX;
-	const int edgeY = tilemapRange[layer].edgeY;
+	TilemapRange *tmapRange = &tilemapRange[layer];
+	const int x0 = tmapRange->x0;
+	const int x1 = tmapRange->x1;
+	const int y0 = tmapRange->y0;
+	const int y1 = tmapRange->y1;
 
-	int pz = pos->z + TILE_SIZE * (TILEMAP_LAYERS - layer);
-	p0.z = p1.z = p2.z = p3.z = pz;
-
-	cacheScreenXdata(pos, edgeX, edgeY, pz);
-	int diffX = (xsData[x0+1] - xsData[x0]) << SCR_BITS;
+	int layerZ = pos->z + TILE_SIZE * (TILEMAP_LAYERS - layer);
+	int diffX = (TILE_SIZE << PROJ_BITS) / layerZ;
+	int diffY = (TILE_SIZE << PROJ_BITS) / layerZ;
 
 	uint8 color = ((layer+1) * 16) / TILEMAP_LAYERS;
 	if (color > 15) color = 15;
 
-	int py = -pos->y;
-	uint8 *src = &tilemap3d[layer*TILEMAP_LAYER_SIZE];
-	//Point2D *pt = &screenPoints[layer*TILEMAP_LAYER_SIZE];
-	for (int y=0; y<TILEMAP_HEIGHT; ++y) {
-		if (py > -edgeY && py < edgeY) {
-			int ys = ((py << PROJ_BITS) / pz + SCR_H / 2) << SCR_BITS;
-			for (int x=x0; x<x1; ++x) {
-				if (src[x]) {
-					//drawDot(xsData[x],ys, color, vram);
-					int xs = xsData[x] << SCR_BITS;
+	uint8 *src = &tilemap3d[layer*TILEMAP_LAYER_SIZE + y0*TILEMAP_WIDTH];
+	for (int y=y0; y<y1; ++y) {
+		const int ys = ysData[y];
+		for (int x=x0; x<x1; ++x) {
+			if (src[x]) {
+				const int xs = xsData[x];
 
-					p0.x = xs; p1.x = xs + diffX; p2.x = xs + diffX; p3.x = xs;
-					p0.y = ys; p1.y = ys; p2.y = ys + diffX; p3.y = ys + diffX;
-
-					drawLine(&p0, &p1, layer, vram);
-					drawLine(&p1, &p2, layer, vram);
-					drawLine(&p2, &p3, layer, vram);
-					drawLine(&p3, &p0, layer, vram);
-				}
-				//pt[x].x = src[x];
-				//pt[x].y = py;
+				//drawDot(xs, ys, color, vram);
+				drawQuad(xs,ys, xs+diffX, ys+diffY, color, vram);
 			}
 		}
-		py += TILE_SIZE;
-
 		src += TILEMAP_WIDTH;
-		//pt += TILEMAP_WIDTH;
-	}
-}
-
-static void updateTilemapEdges(Vec3 *pos)
-{
-	for (int i=0; i<TILEMAP_LAYERS; ++i) {
-		TilemapRange *tmapRange = &tilemapRange[i];
-		int pz = pos->z + TILE_SIZE * (TILEMAP_LAYERS - i);
-		tmapRange->edgeX = ((SCR_W/2 + TILE_SIZE) * pz) >> PROJ_BITS;
-		tmapRange->edgeY = ((SCR_H/2 + TILE_SIZE) * pz) >> PROJ_BITS;
 	}
 }
 
 //262-1841 (131072)
 //407-2121
-/*static void printSomething()
-{
-	for (int i=0; i<TILEMAP_LAYERS; ++i) {
-		printf("%d,%d   ", tilemapRange[i].edgeX, tilemapRange[i].edgeY);
-	}
-	printf("\n");
-}*/
+//395-2096
 
 void renderTilemap3d(Vec3 *pos, Screen *screen)
 {
-	updateTilemapEdges(pos);
-
 	for (int i=0; i<TILEMAP_LAYERS; ++i) {
+		updateTilemapEdges(pos, i);
 		renderTilemap3dLayer(pos, i, screen);
 	}
-
-	//printSomething();
 }
