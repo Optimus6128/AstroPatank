@@ -7,10 +7,14 @@
 
 #include "tile_3d.h"
 #include "engine.h"
+#include "mesh.h"
+#include "meshdata.h"
+
 #include "render.h"
 #include "vector.h"
 #include "video.h"
 #include "mathutil.h"
+
 
 enum {
 	TILE_RENDER_DOTS,
@@ -40,9 +44,15 @@ static Vec3 tilePos[TILEMAP_LAYER_SIZE];
 
 static TilemapPos tmapPos[TILEMAP_WIDTH];
 
-
-
 static int tileRenderType = TILE_RENDER_DOTS;
+
+
+
+#define NUM_TILES 4
+
+static int8 *objTileMeshData[NUM_TILES] = { objRombusData, objCubeData, objGlenzData, objSquareCrossData };
+static Mesh *objTileMesh[NUM_TILES];
+
 
 void advTileRenderType(bool inc)
 {
@@ -69,6 +79,10 @@ void tilemap3dInit()
 				*dst++ = c;
 			}
 		}
+	}
+
+	for (int i=0; i<NUM_TILES; ++i) {
+		objTileMesh[i] = initMeshFromCPCdata(objTileMeshData[i]);
 	}
 }
 
@@ -228,6 +242,27 @@ static void updateTilemapEdges(Vec3 *pos, uint8 layer)
 	cacheScreenData(pos, tmapRange, layerZ);
 }
 
+static void renderTilemap3DLayerMesh(int x0, int y0, int x1, int y1, uint8 *tmap, int layerZ, Screen *screen)
+{
+	for (int y=y0; y<y1; ++y) {
+		const int ys = tmapPos[y].ys;
+		for (int x=x0; x<x1; ++x) {
+			uint8 c = tmap[x];
+			if (c > 0 && c < NUM_TILES) {
+				const int xs = tmapPos[x].xs;
+
+				Mesh *ms = objTileMesh[c];
+				ms->rot.x = ms->rot.y = ms->rot.z = 0;
+				ms->pos.x = (xs - SCR_W / 2) << 1;
+				ms->pos.y = (SCR_H / 2 - ys) << 1;
+				ms->pos.z = layerZ >> 1;
+				renderMesh(ms, screen);
+			}
+		}
+		tmap += TILEMAP_WIDTH;
+	}
+}
+
 static void renderTilemap3dLayerQuads(int x0, int y0, int x1, int y1, uint8 color, int tileScrSize, uint8 *tmap, uint8 *vram)
 {
 	for (int y=y0; y<y1; ++y) {
@@ -303,6 +338,7 @@ static void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen)
 		break;
 
 		case TILE_RENDER_MESH:
+			renderTilemap3DLayerMesh(x0,y0,x1,y1,tmap,layerZ,screen);
 		break;
 	}
 }
