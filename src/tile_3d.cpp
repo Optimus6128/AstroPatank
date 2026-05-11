@@ -245,17 +245,17 @@ static void updateTilemapEdges(Vec3 *pos, uint8 layer)
 static void renderTilemap3DLayerMesh(int x0, int y0, int x1, int y1, uint8 *tmap, int layerZ, Screen *screen)
 {
 	for (int y=y0; y<y1; ++y) {
-		const int ys = tmapPos[y].ys;
+		const int py = tmapPos[y].y;
 		for (int x=x0; x<x1; ++x) {
 			uint8 c = tmap[x];
 			if (c > 0 && c < NUM_TILES) {
-				const int xs = tmapPos[x].xs;
+				const int px = tmapPos[x].x;
 
 				Mesh *ms = objTileMesh[c];
 				ms->rot.x = ms->rot.y = ms->rot.z = 0;
-				ms->pos.x = (xs - SCR_W / 2) << 1;
-				ms->pos.y = (SCR_H / 2 - ys) << 1;
-				ms->pos.z = layerZ >> 1;
+				ms->pos.x = px>>1;
+				ms->pos.y = -py>>1;
+				ms->pos.z = layerZ>>2;
 				renderMesh(ms, screen);
 			}
 		}
