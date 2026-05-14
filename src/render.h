@@ -15,6 +15,7 @@
 void drawLine(ScreenPoint *p0, ScreenPoint *p1, uint8 color, uint8 *vram);
 void drawLineAntialiased(ScreenPoint *p0, ScreenPoint *p1, uint8 color4, uint8 *vram);
 void drawPoly(ScreenPoint *p[], int edgesNum, uint8 color, uint8 *vram);
+void drawQuad(ScreenPoint *p[], uint8 color, uint8 *vram);
 void drawPolyAntialiased(ScreenPoint *p[], uint8 *edgeAdjacentPolysNum, int edgesNum, uint8 color, uint8 *vram);
 
 #endif

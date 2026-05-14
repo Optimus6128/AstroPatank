@@ -323,3 +323,26 @@ void drawPoly(ScreenPoint *p[], int edgesNum, uint8 color, uint8 *vram)
 	#endif
 #endif
 }
+
+void drawQuad(ScreenPoint *p[], uint8 color, uint8 *vram)
+{
+	yScanlineMin = SCR_H;
+	yScanlineMax = -1;
+
+	prepareEdgeScanlinesFlat(p[0],p[1]);
+	prepareEdgeScanlinesFlat(p[1],p[2]);
+	prepareEdgeScanlinesFlat(p[2],p[3]);
+	prepareEdgeScanlinesFlat(p[3],p[0]);
+
+	uint8 col = ((color&7)<<4)+15;
+
+#ifdef FILL_SCANLINES_ASM
+	fillScanlinesAsm(col, vram);
+#else
+	#ifdef SCR_UNCHAINED
+		fillScanlinesUnchained(col, vram);
+	#else
+		fillScanlines(col, vram);
+	#endif
+#endif
+}
