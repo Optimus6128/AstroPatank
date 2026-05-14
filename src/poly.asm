@@ -68,15 +68,19 @@ fillScanlinesAsm_:
 		scanlineLoopY:
 			push edi
 
-			mov ebx,[esi]	; BX=x0, (BX>>16)=x1
-			add esi,SCANLINE_STRUCT_SIZE
+			;mov bx,[esi]
+			;mov cx,[esi+2]
 
+			mov ebx,[esi]	; BX=x0, (EBX>>16)=x1
+			add esi,SCANLINE_STRUCT_SIZE
 			mov ecx,ebx
 			shr ecx,16		; BX=x0, CX=x1
 
 			; if (x0 < 0) x0 = 0;
 			test bx,bx
 			jns noNegX0
+				test cx,cx
+				jle afterRenderScanline
 				xor bx,bx
 			noNegX0:
 
