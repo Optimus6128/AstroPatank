@@ -36,11 +36,15 @@ typedef struct TilemapRange
 	int x0,x1,y0,y1;
 } TilemapRange;
 
+typedef struct TileMeshInfo
+{
+	int numQuads;
+	ScreenPoint **spStart;
+} TileMeshInfo;
+
 
 static uint8 tilemap3d[TILEMAP_SIZE];
 static TilemapRange tilemapRange[TILEMAP_LAYERS];
-
-static Vec3 tilePos[TILEMAP_LAYER_SIZE];
 
 static TilemapPos tmapPos[TILEMAP_LAYERS][TILEMAP_WIDTH];
 
@@ -53,6 +57,14 @@ static int8 *objTileMeshData[NUM_TILES] = { objRombusData, objCubeData, objGlenz
 static Mesh *objTileMesh[NUM_TILES];
 
 
+static ScreenPoint tileScrPt[TILEMAP_SIZE];
+
+static TileMeshInfo tileMeshInfo[TILEMAP_SIZE];
+static ScreenPoint *scrPlist[TILEMAP_SIZE * 5];		// good theoritical maximum? Will reduce..
+static int scrPindex = 0;
+
+// scrPlist 4 ScreenPoint* per quad point at &tileScrPtr[n]
+// tileMeshInfo per tile, tells you number of quads (can be 0 to 6 (but 5 max in our case as the bottom is always out of view)), then pointer to scrPlist start of the sequence of points
 
 static ScreenPoint scrP0, scrP1, scrP2, scrP3;
 static ScreenPoint *scrP[4] = { &scrP0, &scrP1, &scrP2, &scrP3 };
