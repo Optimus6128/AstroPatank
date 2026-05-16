@@ -264,7 +264,7 @@ static void updateTilemapEdges(Vec3 *pos, uint8 layer)
 	cacheScreenData(pos, tmapRange, layer,layerZ);
 }
 
-static void renderTilemap3DLayerMesh(int x0, int y0, int x1, int y1, uint8 layer, int layerZ, uint8 *tmap, Screen *screen)
+/*static void renderTilemap3DLayerMeshOof(int x0, int y0, int x1, int y1, uint8 layer, int layerZ, uint8 *tmap, Screen *screen)
 {
 	// Once to update grid axes of the same and same cube, so it never renders just transforms cube object once
 	renderMeshHack(objTileMesh[1], screen, true);
@@ -286,6 +286,27 @@ static void renderTilemap3DLayerMesh(int x0, int y0, int x1, int y1, uint8 layer
 			}
 		}
 		tmap += TILEMAP_WIDTH;
+	}
+}*/
+
+static void renderTilemap3DLayerMesh(int x0, int y0, int x1, int y1, uint8 layer, int layerZ, uint8 *tmap, Screen *screen)
+{
+	TilemapPos *tp = &tmapPos[layer][0];
+	ScreenPoint *sp = &tileScrPt[layer * TILEMAP_LAYER_SIZE + y0 * TILEMAP_WIDTH];
+
+	int x1b = x1;
+	int y1b = y1;
+	if (x1 < TILEMAP_WIDTH-1) ++x1b;
+	if (y1 < TILEMAP_HEIGHT-1) ++y1b;
+
+	for (int y=y0; y<y1b; ++y) {
+		const int py = tp[y].y;
+		for (int x=x0; x<x1b; ++x) {
+			const int px = tp[x].x;
+			sp[x].x = px;
+			sp[x].y = py;
+		}
+		sp += TILEMAP_WIDTH;
 	}
 }
 
