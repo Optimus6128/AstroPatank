@@ -22,16 +22,12 @@ enum {
 	TILE_RENDER_COUNT
 };
 
-typedef struct TilemapPos
+typedef struct TilemapGridInfo
 {
-	int xs,ys;
-} TilemapPos;
-
-typedef struct TilemapRange
-{
-	int edgeX, edgeY;
 	int x0,x1,y0,y1;
-} TilemapRange;
+	int xs0, ys0;
+	int tileStep;
+} TilemapGridInfo;
 
 typedef struct TileMeshInfo
 {
@@ -41,9 +37,7 @@ typedef struct TileMeshInfo
 
 
 static uint8 tilemap3d[TILEMAP_SIZE];
-static TilemapRange tilemapRange[TILEMAP_LAYERS];
-
-static TilemapPos tmapPos[TILEMAP_WIDTH];
+static TilemapGridInfo tmapGridInfo;
 
 static int tileRenderType = TILE_RENDER_DOTS;
 
@@ -182,26 +176,6 @@ static void drawRectangle(int x0, int y0, int x1, int y1, uint8 color, uint8 *vr
 	};
 }
 
-static void cacheScreenData(Vec3 *pos, TilemapRange *tmapRange, int layerZ)
-{
-	int x0 = tmapRange->x0;
-	int x1 = tmapRange->x1;
-	int y0 = tmapRange->y0;
-	int y1 = tmapRange->y1;
-
-	int px = -pos->x + x0 * TILE_SIZE;
-	for (int x=x0; x<x1; ++x) {
-		tmapPos[x].xs = (px << PROJ_BITS) / layerZ + SCR_W / 2;
-		px += TILE_SIZE;
-	}
-
-	int py = -pos->y + y0 * TILE_SIZE;
-	for (int y=y0; y<y1; ++y) {
-		tmapPos[y].ys = (py << PROJ_BITS) / layerZ + SCR_H / 2;
-		py += TILE_SIZE;
-	}
-}
-
 static void findTilemapExtends(int posI, int iRange, int edgeI, int *tmapI0, int *tmapI1)
 {
 	int i0=0;
@@ -231,74 +205,112 @@ static void findTilemapExtends(int posI, int iRange, int edgeI, int *tmapI0, int
 
 static void updateTilemapEdges(Vec3 *pos, uint8 layer)
 {
-	TilemapRange *tmapRange = &tilemapRange[layer];
 	int layerZ = pos->z + TILE_SIZE * (TILEMAP_LAYERS - layer);
-	tmapRange->edgeX = (SCR_W/2 * layerZ) >> PROJ_BITS;
-	tmapRange->edgeY = (SCR_H/2 * layerZ) >> PROJ_BITS;
+	int edgeX = (SCR_W/2 * layerZ) >> PROJ_BITS;
+	int edgeY = (SCR_H/2 * layerZ) >> PROJ_BITS;
 
-	findTilemapExtends(-pos->x, TILEMAP_WIDTH, tmapRange->edgeX, &tmapRange->x0, &tmapRange->x1);
-	findTilemapExtends(-pos->y, TILEMAP_HEIGHT, tmapRange->edgeY, &tmapRange->y0, &tmapRange->y1);
+	findTilemapExtends(-pos->x, TILEMAP_WIDTH, edgeX, &tmapGridInfo.x0, &tmapGridInfo.x1);
+	findTilemapExtends(-pos->y, TILEMAP_HEIGHT, edgeY, &tmapGridInfo.y0, &tmapGridInfo.y1);
 
-	cacheScreenData(pos, tmapRange, layerZ);
+	tmapGridInfo.xs0 = ((-pos->x + tmapGridInfo.x0 * TILE_SIZE) << PROJ_BITS) / layerZ + SCR_W / 2;
+	tmapGridInfo.ys0 = ((-pos->y + tmapGridInfo.y0 * TILE_SIZE) << PROJ_BITS) / layerZ + SCR_H / 2;
+	tmapGridInfo.tileStep = (TILE_SIZE << PROJ_BITS) / layerZ;
 }
 
-static void renderTilemap3DLayerMesh(int x0, int y0, int x1, int y1, uint8 layer, uint8 *tmap, Screen *screen)
+static void renderTilemap3DLayerMesh(uint8 layer, uint8 *tmap, uint8 *vram)
 {
-	ScreenPoint *sp = &tileScrPt[layer * TILEMAP_LAYER_SIZE + y0 * TILEMAP_WIDTH];
+	ScreenPoint *sp = &tileScrPt[layer * TILEMAP_LAYER_SIZE + tmapGridInfo.y0 * TILEMAP_WIDTH];
+
+	int x0 = tmapGridInfo.x0;
+	int y0 = tmapGridInfo.y0;
+	int x1 = tmapGridInfo.x1;
+	int y1 = tmapGridInfo.y1;
 
 	int x1b = x1;
 	int y1b = y1;
 	if (x1 < TILEMAP_WIDTH-1) ++x1b;
 	if (y1 < TILEMAP_HEIGHT-1) ++y1b;
 
+	int xs = tmapGridInfo.xs0;
+	int ys = tmapGridInfo.ys0;
+	int step = tmapGridInfo.tileStep;
+
 	for (int y=y0; y<y1b; ++y) {
-		const int py = tmapPos[y].ys;
 		for (int x=x0; x<x1b; ++x) {
-			const int px = tmapPos[x].xs;
-			sp[x].x = px;
-			sp[x].y = py;
+			sp[x].x = xs;
+			sp[x].y = ys;
+			xs += step;
 		}
+		ys += step;
 		sp += TILEMAP_WIDTH;
 	}
 }
 
-static void renderTilemap3dLayerQuads(int x0, int y0, int x1, int y1, uint8 color, int tileScrSize, uint8 *tmap, uint8 *vram)
+static void renderTilemap3dLayerQuads(uint8 color, uint8 *tmap, uint8 *vram)
 {
+	int x0 = tmapGridInfo.x0;
+	int y0 = tmapGridInfo.y0;
+	int x1 = tmapGridInfo.x1;
+	int y1 = tmapGridInfo.y1;
+
+	int xs = tmapGridInfo.xs0;
+	int ys = tmapGridInfo.ys0;
+	int step = tmapGridInfo.tileStep;
+
 	for (int y=y0; y<y1; ++y) {
-		const int ys = tmapPos[y].ys;
 		for (int x=x0; x<x1; ++x) {
 			if (tmap[x]) {
-				const int xs = tmapPos[x].xs;
-				drawRectangle(xs,ys, xs+tileScrSize, ys+tileScrSize, color, vram);
+				drawRectangle(xs,ys, xs+step, ys+step, color, vram);
 			}
+			xs += step;
 		}
+		ys += step;
 		tmap += TILEMAP_WIDTH;
 	}
 }
 
-static void renderTilemap3dLayerLines(int x0, int y0, int x1, int y1, uint8 color, int tileScrSize, uint8 *tmap, uint8 *vram)
+static void renderTilemap3dLayerLines(uint8 color, uint8 *tmap, uint8 *vram)
 {
+	int x0 = tmapGridInfo.x0;
+	int y0 = tmapGridInfo.y0;
+	int x1 = tmapGridInfo.x1;
+	int y1 = tmapGridInfo.y1;
+
+	int xs = tmapGridInfo.xs0;
+	int ys = tmapGridInfo.ys0;
+	int step = tmapGridInfo.tileStep;
+
 	for (int y=y0; y<y1; ++y) {
-		const int ys = tmapPos[y].ys;
 		for (int x=x0; x<x1; ++x) {
 			if (tmap[x]) {
-				const int xs = tmapPos[x].xs;
-				drawRectangleLines(xs,ys, xs+tileScrSize, ys+tileScrSize, color, vram);
+				drawRectangleLines(xs,ys, xs+step, ys+step, color, vram);
 			}
+			xs += step;
 		}
+		ys += step;
 		tmap += TILEMAP_WIDTH;
 	}
 }
 
-static void renderTilemap3dLayerDots(int x0, int y0, int x1, int y1, uint8 color, uint8 *tmap, uint8 *vram)
+static void renderTilemap3dLayerDots(uint8 color, uint8 *tmap, uint8 *vram)
 {
+	int x0 = tmapGridInfo.x0;
+	int y0 = tmapGridInfo.y0;
+	int x1 = tmapGridInfo.x1;
+	int y1 = tmapGridInfo.y1;
+
+	int xs = tmapGridInfo.xs0;
+	int ys = tmapGridInfo.ys0;
+	int step = tmapGridInfo.tileStep;
+
 	for (int y=y0; y<y1; ++y) {
-		const int ys = tmapPos[y].ys;
 		for (int x=x0; x<x1; ++x) {
 			if (tmap[x]) {
-				drawDot(tmapPos[x].xs, ys, color, vram);
+				drawDot(xs, ys, color, vram);
 			}
+			xs += step;
 		}
+		ys += step;
 		tmap += TILEMAP_WIDTH;
 	}
 }
@@ -307,39 +319,27 @@ void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen)
 {
 	updateTilemapEdges(pos, layer);
 
-	TilemapRange *tmapRange = &tilemapRange[layer];
-	const int x0 = tmapRange->x0;
-	const int x1 = tmapRange->x1;
-	const int y0 = tmapRange->y0;
-	const int y1 = tmapRange->y1;
-
 	uint8 color = ((layer+1) * 16) / TILEMAP_LAYERS;
 	if (color > 15) color = 15;
 
-	uint8 *tmap = &tilemap3d[layer*TILEMAP_LAYER_SIZE + y0*TILEMAP_WIDTH];
+	uint8 *tmap = &tilemap3d[layer*TILEMAP_LAYER_SIZE + tmapGridInfo.y0 * TILEMAP_WIDTH];
 	uint8 *vram = (uint8*)screen->data;
-
-	int layerZ, tileScrSize;
-	if (tileRenderType > TILE_RENDER_DOTS) {
-		layerZ = pos->z + TILE_SIZE * (TILEMAP_LAYERS - layer);
-		tileScrSize = (TILE_SIZE << PROJ_BITS) / layerZ;
-	}
 
 	switch(tileRenderType) {
 		case TILE_RENDER_DOTS:
-			renderTilemap3dLayerDots(x0,y0,x1,y1,color,tmap,vram);
+			renderTilemap3dLayerDots(color,tmap,vram);
 		break;
 
 		case TILE_RENDER_LINES:
-			renderTilemap3dLayerLines(x0,y0,x1,y1,color,tileScrSize,tmap,vram);
+			renderTilemap3dLayerLines(color,tmap,vram);
 		break;
 
 		case TILE_RENDER_QUADS:
-			renderTilemap3dLayerQuads(x0,y0,x1,y1,color,tileScrSize,tmap,vram);
+			renderTilemap3dLayerQuads(color,tmap,vram);
 		break;
 
 		case TILE_RENDER_MESH:
-			renderTilemap3DLayerMesh(x0,y0,x1,y1,layer,tmap,screen);
+			renderTilemap3DLayerMesh(layer,tmap,vram);
 		break;
 	}
 }
