@@ -231,11 +231,10 @@ static void renderTilemap3DLayerMesh(uint8 layer, uint8 *tmap, uint8 *vram)
 	if (x1 < TILEMAP_WIDTH-1) ++x1b;
 	if (y1 < TILEMAP_HEIGHT-1) ++y1b;
 
-	int xs = tmapGridInfo.xs0;
-	int ys = tmapGridInfo.ys0;
 	int step = tmapGridInfo.tileStep;
-
+	int ys = tmapGridInfo.ys0;
 	for (int y=y0; y<y1b; ++y) {
+		int xs = tmapGridInfo.xs0;
 		for (int x=x0; x<x1b; ++x) {
 			sp[x].x = xs;
 			sp[x].y = ys;
@@ -253,11 +252,10 @@ static void renderTilemap3dLayerQuads(uint8 color, uint8 *tmap, uint8 *vram)
 	int x1 = tmapGridInfo.x1;
 	int y1 = tmapGridInfo.y1;
 
-	int xs = tmapGridInfo.xs0;
-	int ys = tmapGridInfo.ys0;
 	int step = tmapGridInfo.tileStep;
-
+	int ys = tmapGridInfo.ys0;
 	for (int y=y0; y<y1; ++y) {
+		int xs = tmapGridInfo.xs0;
 		for (int x=x0; x<x1; ++x) {
 			if (tmap[x]) {
 				drawRectangle(xs,ys, xs+step, ys+step, color, vram);
@@ -276,11 +274,10 @@ static void renderTilemap3dLayerLines(uint8 color, uint8 *tmap, uint8 *vram)
 	int x1 = tmapGridInfo.x1;
 	int y1 = tmapGridInfo.y1;
 
-	int xs = tmapGridInfo.xs0;
-	int ys = tmapGridInfo.ys0;
 	int step = tmapGridInfo.tileStep;
-
+	int ys = tmapGridInfo.ys0;
 	for (int y=y0; y<y1; ++y) {
+		int xs = tmapGridInfo.xs0;
 		for (int x=x0; x<x1; ++x) {
 			if (tmap[x]) {
 				drawRectangleLines(xs,ys, xs+step, ys+step, color, vram);
@@ -299,11 +296,10 @@ static void renderTilemap3dLayerDots(uint8 color, uint8 *tmap, uint8 *vram)
 	int x1 = tmapGridInfo.x1;
 	int y1 = tmapGridInfo.y1;
 
-	int xs = tmapGridInfo.xs0;
-	int ys = tmapGridInfo.ys0;
 	int step = tmapGridInfo.tileStep;
-
+	int ys = tmapGridInfo.ys0;
 	for (int y=y0; y<y1; ++y) {
+		int xs = tmapGridInfo.xs0;
 		for (int x=x0; x<x1; ++x) {
 			if (tmap[x]) {
 				drawDot(xs, ys, color, vram);
