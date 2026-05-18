@@ -19,4 +19,6 @@ void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen);
 
 void advTileRenderType(bool inc);
 
+uint8* getTilemap3D();
+
 #endif

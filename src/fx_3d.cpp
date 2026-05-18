@@ -29,7 +29,7 @@ static int8 *objMeshData[NUM_OBJECTS] = {	objQuadData, objTripodData, objPyramid
 static Mesh *objectMesh[NUM_OBJECTS];
 
 static int renderMethod = RENDER_POLYS;
-static int objectMeshIndex = 6;
+static int objectMeshIndex = 9;
 
 static Vec3 playerPos;
 static int playerSpeed = 8;
@@ -69,8 +69,26 @@ static void script3D(Mesh *ms, int t)
 	ms->renderMode = renderMethod;
 }
 
+static bool checkPlayerCollision(uint8 *tmap)
+{
+	const int playerSize = TILE_SIZE / 4;
+	int tx0 = (playerPos.x - playerSize) / TILE_SIZE;
+	int ty0 = (playerPos.y - playerSize) / TILE_SIZE;
+	int tx1 = (playerPos.x + playerSize) / TILE_SIZE;
+	int ty1 = (playerPos.y + playerSize) / TILE_SIZE;
+
+	CLAMP(tx0,0,TILEMAP_WIDTH-1)
+	CLAMP(tx1,0,TILEMAP_WIDTH-1)
+	CLAMP(ty0,0,TILEMAP_HEIGHT-1)
+	CLAMP(ty1,0,TILEMAP_HEIGHT-1)
+
+	return (tmap[ty0*TILEMAP_WIDTH+tx0] || tmap[ty0*TILEMAP_WIDTH+tx1] || tmap[ty1*TILEMAP_WIDTH+tx0] || tmap[ty1*TILEMAP_WIDTH+tx1]);
+}
+
 static void input3D()
 {
+	uint8* tmap = &getTilemap3D()[TILEMAP_LAYER_SIZE];
+
 	//static bool leftPressed = false;
 	//static bool rightPressed = false;
 	//static bool upPressed = false;
@@ -79,21 +97,33 @@ static void input3D()
 	static bool rPrevPressed = false;
 	static bool rNextPressed = false;
 
+	int prevPlayerPosX = playerPos.x;
+	int prevPlayerPosY = playerPos.y;
+
 	if (buttonsHeld.left) {// & !leftPressed) {
-		playerPos.x -= playerSpeed;
+		playerPos.x -= 2*playerSpeed;
 	}
 	if (buttonsHeld.right) {// & !rightPressed) {
-		playerPos.x += playerSpeed;
+		playerPos.x += 2*playerSpeed;
 	}
+	if (checkPlayerCollision(tmap)) {
+		playerPos.x = prevPlayerPosX;
+	}
+
 	if (buttonsHeld.up) {// & !upPressed) {
-		playerPos.y -= playerSpeed;
+		playerPos.y -= 2*playerSpeed;
 	}
 	if (buttonsHeld.down) {// & !downPressed) {
-		playerPos.y += playerSpeed;
+		playerPos.y += 2*playerSpeed;
+	}
+	if (checkPlayerCollision(tmap)) {
+		playerPos.y = prevPlayerPosY;
 	}
 
 	if (buttonsHeld.zoomIn) {
-		playerPos.z -= 4*playerSpeed;
+		if (playerPos.z > 512) {
+			playerPos.z -= 4*playerSpeed;
+		}
 	}
 
 	if (buttonsHeld.zoomOut) {
@@ -173,8 +203,8 @@ void fx3dInit(bool onlySetup)
 		}
 	}
 
-	playerPos.x = (TILEMAP_WIDTH / 2) * TILE_SIZE;
-	playerPos.y = (TILEMAP_HEIGHT / 2) * TILE_SIZE;
+	playerPos.x = (TILEMAP_WIDTH / 2) * TILE_SIZE - 3*TILE_SIZE;
+	playerPos.y = (TILEMAP_HEIGHT / 2) * TILE_SIZE - 2*TILE_SIZE;
 	playerPos.z = 1024;
 
 	tilemap3dInit();
