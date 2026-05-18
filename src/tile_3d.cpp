@@ -69,15 +69,43 @@ static void buildTilemapMesh()
 				if (x<TILEMAP_WIDTH-1 && y<TILEMAP_HEIGHT-1) {
 					uint8 c = *src;
 					if (c != 0) {
+						dst->spStart = spNext;
+						if (i > 0) {
+							if (x==0 || *(src - 1)==0) {
+								*spNext++ = &srcPt[0];
+								*spNext++ = &srcPt[-TILEMAP_LAYER_SIZE];
+								*spNext++ = &srcPt[-TILEMAP_LAYER_SIZE+TILEMAP_WIDTH];
+								*spNext++ = &srcPt[TILEMAP_WIDTH];
+								++numQuads;
+							}
+							if (*(src + 1)==0) {
+								*spNext++ = &srcPt[1+TILEMAP_WIDTH];
+								*spNext++ = &srcPt[-TILEMAP_LAYER_SIZE+1+TILEMAP_WIDTH];
+								*spNext++ = &srcPt[-TILEMAP_LAYER_SIZE+1];
+								*spNext++ = &srcPt[1];
+								++numQuads;
+							}
+							if (y==0 || *(src - TILEMAP_WIDTH)==0) {
+								*spNext++ = &srcPt[1];
+								*spNext++ = &srcPt[-TILEMAP_LAYER_SIZE+1];
+								*spNext++ = &srcPt[-TILEMAP_LAYER_SIZE];
+								*spNext++ = &srcPt[0];
+								++numQuads;
+							}
+							if (*(src + TILEMAP_WIDTH)==0) {
+								*spNext++ = &srcPt[TILEMAP_WIDTH];
+								*spNext++ = &srcPt[-TILEMAP_LAYER_SIZE+TILEMAP_WIDTH];
+								*spNext++ = &srcPt[-TILEMAP_LAYER_SIZE+TILEMAP_WIDTH+1];
+								*spNext++ = &srcPt[TILEMAP_WIDTH+1];
+								++numQuads;
+							}
+						}
 						if (i==TILEMAP_LAYERS-1 || *(src + TILEMAP_LAYER_SIZE)==0) {
-							dst->spStart = spNext;
 							*spNext++ = &srcPt[TILEMAP_WIDTH];
 							*spNext++ = &srcPt[1+TILEMAP_WIDTH];
 							*spNext++ = &srcPt[1];
 							*spNext++ = &srcPt[0];
 							++numQuads;
-						}
-						if (i > 0) {
 						}
 					}
 				}
@@ -260,8 +288,12 @@ static void findTilemapExtends(int posI, int iRange, int edgeI, int *tmapI0, int
 static void updateTilemapEdges(Vec3 *pos, uint8 layer)
 {
 	int layerZ = pos->z + TILE_SIZE * (TILEMAP_LAYERS - layer);
-	int edgeX = (SCR_W/2 * layerZ) >> PROJ_BITS;
-	int edgeY = (SCR_H/2 * layerZ) >> PROJ_BITS;
+	int edgeZ = layerZ;
+	if (layer > 0) {
+		edgeZ += TILE_SIZE;
+	}
+	int edgeX = (SCR_W/2 * edgeZ) >> PROJ_BITS;
+	int edgeY = (SCR_H/2 * edgeZ) >> PROJ_BITS;
 
 	findTilemapExtends(-pos->x, TILEMAP_WIDTH, edgeX, &tmapGridInfo.x0, &tmapGridInfo.x1);
 	findTilemapExtends(-pos->y, TILEMAP_HEIGHT, edgeY, &tmapGridInfo.y0, &tmapGridInfo.y1);
@@ -269,6 +301,20 @@ static void updateTilemapEdges(Vec3 *pos, uint8 layer)
 	tmapGridInfo.xs0 = ((-pos->x + tmapGridInfo.x0 * TILE_SIZE) << (SCR_BITS + PROJ_BITS)) / layerZ + ((SCR_W / 2) << SCR_BITS);
 	tmapGridInfo.ys0 = ((-pos->y + tmapGridInfo.y0 * TILE_SIZE) << (SCR_BITS + PROJ_BITS)) / layerZ + ((SCR_H / 2) << SCR_BITS);
 	tmapGridInfo.tileStep = (TILE_SIZE << (SCR_BITS + PROJ_BITS)) / layerZ;
+}
+
+static bool checkFaceOrder(ScreenPoint *p[])
+{
+	int x0 = p[0]->x;
+	int y0 = p[0]->y;
+	int x1 = p[1]->x;
+	int y1 = p[1]->y;
+	int x2 = p[2]->x;
+	int y2 = p[2]->y;
+
+	long long int faceOrder = (long long int)(x0 - x1) * (long long int)(y2 - y1) - (long long int)(x2 - x1) * (long long int)(y0 - y1);
+
+	return faceOrder >= 0;
 }
 
 static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
@@ -306,7 +352,9 @@ static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 			if (numQuads != 0) {
 				ScreenPoint **spQuad = tmi[x].spStart;
 				for (int n=0; n<numQuads; ++n) {
-					drawQuad(spQuad, 2*(n+layer), vram);
+					if (checkFaceOrder(spQuad)) {
+						drawQuad(spQuad, 2*(n+layer), vram);
+					}
 					spQuad += 4;
 				}
 			}
