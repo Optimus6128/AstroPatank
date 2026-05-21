@@ -130,26 +130,26 @@ longerRectRenderPath:
 		mov bh,4
 		sub bh,dl
 
-		movzx dx,bh
-		sub cx,dx
+		movzx edx,bh
+		sub ecx,edx
 		mov bl,cl
-		shr cx,2
-		mov dx,cx
-
 		and bl,3
 
+		shr ecx,2
+		mov edx,ecx
+
 		scanlineLoopY:
-			mov cl,bh
-			rep stosb
+				mov cl,bh
+				rep stosb
 
-			mov cx,dx
-			rep stosd
+				mov ecx,edx
+				rep stosd
 
-			mov cl,bl
-			rep stosb
+				mov cl,bl
+				rep stosb
 
-			add edi,ebp
-			dec esi
+				add edi,ebp
+				dec esi
 		jnz scanlineLoopY
 
 aman:
