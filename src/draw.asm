@@ -110,11 +110,25 @@ drawRectangleAsm_:
 
 		mov ebp,edi	; ebp for store vram start
 		mov ebx,ecx ; ebx for store lengthX
+
+		cmp cx,5
+		jnc longerRectRenderPath
+
+		scanlineLoopY0:
+			rep stosb
+
+			add ebp,SCR_BYTE_LENGTH
+			mov edi,ebp	; get back vram
+			mov ecx,ebx	; get back lengthX
+
+			dec esi
+		jnz scanlineLoopY0
+		jmp aman
+
+longerRectRenderPath:
+
 		scanlineLoopY:
 			push edx	; will see if we can avoid it
-
-			cmp cx,5
-			jc tinyWriteBeforeNextLine
 
 			and dl,3	; Let's see left side if we need to write bytes
 			jz noLeftPixels
@@ -140,7 +154,6 @@ drawRectangleAsm_:
 			and dl,3
 			jz afterRenderScanline
 				mov cl,dl
-			tinyWriteBeforeNextLine:
 				rep stosb
 
 			afterRenderScanline:
