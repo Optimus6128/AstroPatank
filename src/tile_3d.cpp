@@ -13,6 +13,7 @@
 #include "video.h"
 #include "mathutil.h"
 
+#include "maps.h"
 
 enum {
 	TILE_RENDER_DOTS,
@@ -158,13 +159,26 @@ void tilemap3dInit()
 		for (int y=0; y<TILEMAP_HEIGHT; ++y) {
 			for (int x=0; x<TILEMAP_WIDTH; ++x) {
 				uint8 c = 0;
-				if (i==2) {
+				/*if (i==2) {
 					if (!(x & n) || !(y & n)) c = 1;
 				} else {
 					if (!(x & n) && !(y & n)) c = 1;
-				}
+				}*/
+				if (i==0 && !(x & n) && !(y & n)) c = 1;
 				*dst++ = c;
 			}
+		}
+	}
+
+	uint8 *src = map1;
+	dst = tilemap3d;
+	for (int y=0; y<TILEMAP_HEIGHT; ++y) {
+		for (int x=0; x<TILEMAP_WIDTH; ++x) {
+			uint8 c = *src++;
+			for (int i=0; i<3; ++i) {
+				if (c & (1<<i)) *(dst + (i+1)*TILEMAP_LAYER_SIZE) = 1;
+			}
+			dst++;
 		}
 	}
 
