@@ -107,8 +107,8 @@ drawRectangleAsm_:
 		; ebp = y0
 		; esi = countY
 
-
-		mov ebp,edi	; ebp for store vram start
+		mov ebp,SCR_BYTE_LENGTH
+		sub ebp,ecx
 		mov ebx,ecx ; ebx for store lengthX
 
 		cmp cx,5
@@ -117,8 +117,7 @@ drawRectangleAsm_:
 		scanlineLoopY0:
 			rep stosb
 
-			add ebp,SCR_BYTE_LENGTH
-			mov edi,ebp	; get back vram
+			add edi,ebp
 			mov ecx,ebx	; get back lengthX
 
 			dec esi
@@ -128,36 +127,28 @@ drawRectangleAsm_:
 longerRectRenderPath:
 
 		and dl,3
-		mov dh,4
-		sub dh,dl
-		mov [cs:bSizeLeftAutoM+1],dh
+		mov bh,4
+		sub bh,dl
 
-		movzx dx,dh
+		movzx dx,bh
 		sub cx,dx
-		mov dx,cx
+		mov bl,cl
 		shr cx,2
-		mov [cs:dSizeCenterAutoM+2],cx
+		mov dx,cx
 
-		and dl,3
-		mov [cs:bSizeRightAutoM+1],dl
+		and bl,3
 
 		scanlineLoopY:
-			bSizeLeftAutoM:
-			mov cl,0
+			mov cl,bh
 			rep stosb
 
-			dSizeCenterAutoM:
-			mov cx,0
+			mov cx,dx
 			rep stosd
 
-			bSizeRightAutoM:
-			mov cl,0
+			mov cl,bl
 			rep stosb
 
-			afterRenderScanline:
-			add ebp,SCR_BYTE_LENGTH
-			mov edi,ebp	; get back vram
-
+			add edi,ebp
 			dec esi
 		jnz scanlineLoopY
 
