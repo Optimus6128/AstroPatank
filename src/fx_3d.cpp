@@ -22,6 +22,7 @@
 
 
 #define NUM_OBJECTS 17
+#define PPOS_BITS 8
 
 static int8 *objMeshData[NUM_OBJECTS] = {	objQuadData, objTripodData, objPyramidData, objRombusData, objCubeData, objGlenzData, objUfoData, objUfo2Data, objDrumData, objSquareCrossData, 
 									objSpaceship1Data, objTorusData, objCubeStarData, objTest3Data, objRombusRingData, objTorus2Data, objEightCubesData };
@@ -32,7 +33,8 @@ static int renderMethod = RENDER_POLYS;
 static int objectMeshIndex = 9;
 
 static Vec3 playerPos;
-static int playerSpeed = 8;
+static int playerMoveSpeed = 1;
+static int playerZoomSpeed = 32;
 
 static void script3D(Mesh *ms, int t)
 {
@@ -85,7 +87,7 @@ static bool checkPlayerCollision(uint8 *tmap)
 	return (tmap[ty0*TILEMAP_WIDTH+tx0] || tmap[ty0*TILEMAP_WIDTH+tx1] || tmap[ty1*TILEMAP_WIDTH+tx0] || tmap[ty1*TILEMAP_WIDTH+tx1]);
 }
 
-static void input3D()
+static void input3D(int dt)
 {
 	uint8* tmap = &getTilemap3D()[TILEMAP_LAYER_SIZE];
 
@@ -100,34 +102,46 @@ static void input3D()
 	int prevPlayerPosX = playerPos.x;
 	int prevPlayerPosY = playerPos.y;
 
-	if (buttonsHeld.left) {// & !leftPressed) {
-		playerPos.x -= 2*playerSpeed;
+
+	int tMov = ((dt*playerMoveSpeed) << PPOS_BITS);
+
+	int pposX = playerPos.x << PPOS_BITS;
+	int pposY = playerPos.y << PPOS_BITS;
+
+	if (buttonsHeld.left) {
+		pposX -= tMov;
 	}
-	if (buttonsHeld.right) {// & !rightPressed) {
-		playerPos.x += 2*playerSpeed;
+	if (buttonsHeld.right) {
+		pposX += tMov;
 	}
+	playerPos.x = pposX >> PPOS_BITS;
+
 	if (checkPlayerCollision(tmap)) {
 		playerPos.x = prevPlayerPosX;
 	}
 
-	if (buttonsHeld.up) {// & !upPressed) {
-		playerPos.y -= 2*playerSpeed;
+
+	if (buttonsHeld.up) {
+		pposY -= tMov;
 	}
-	if (buttonsHeld.down) {// & !downPressed) {
-		playerPos.y += 2*playerSpeed;
+	if (buttonsHeld.down) {
+		pposY += tMov;
 	}
+	playerPos.y = pposY >> PPOS_BITS;
+
 	if (checkPlayerCollision(tmap)) {
 		playerPos.y = prevPlayerPosY;
 	}
 
+
 	if (buttonsHeld.zoomIn) {
 		if (playerPos.z > 512) {
-			playerPos.z -= 4*playerSpeed;
+			playerPos.z -= playerZoomSpeed;
 		}
 	}
 
 	if (buttonsHeld.zoomOut) {
-		playerPos.z += 4*playerSpeed;
+		playerPos.z += playerZoomSpeed;
 	}
 
 	if (buttonsHeld.renderPrev & !rPrevPressed) {
@@ -149,7 +163,7 @@ static void input3D()
 
 static void setupPalette3D()
 {
-	const int sh1 = 3;
+	const int sh1 = 1;
 	const int sh2 = 5;
 	int i = 0;
 	for (int r=1; r<3; ++r) {
@@ -214,9 +228,13 @@ void fx3dInit(bool onlySetup)
 
 void fx3dRun(Screen *screen, int t)
 {
+	static int t0 = 0;
+
 	clearScreen(screen);
 
-	input3D();
+	input3D(t - t0);
 
 	updateScene3D(screen, t);
+
+	t0 = t;
 }
