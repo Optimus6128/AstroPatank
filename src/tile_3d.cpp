@@ -152,22 +152,37 @@ static void fillLayerRect(int x0, int y0, int x1, int y1, int layer)
 static void loadMapTest()
 {
 	uint8 *src = map1;
+	uint8 *csrc = cmap1;
 	uint8 *dst = tilemap3d;
 	for (int y=0; y<TILEMAP_HEIGHT; ++y) {
 		for (int x=0; x<TILEMAP_WIDTH; ++x) {
-			uint8 c = *src++;
+			uint8 b = *src++;
+			uint8 c = *csrc++;
 			for (int i=0; i<3; ++i) {
-				if (c & (1<<i)) *(dst + (i+1)*TILEMAP_LAYER_SIZE) = 1;
+				if (b & (1<<i)) *(dst + (i+1)*TILEMAP_LAYER_SIZE) = c;
 			}
 			dst++;
 		}
 	}
 }
 
-static void genMapTest()
+static void genMapFloor()
 {
 	uint8 *dst = tilemap3d;
-	for (int i=0; i<TILEMAP_LAYERS; ++i) {
+	uint8 n = 2;
+	for (int y=0; y<TILEMAP_HEIGHT; ++y) {
+		for (int x=0; x<TILEMAP_WIDTH; ++x) {
+			uint8 c = 0;
+			if (!(x & n) && !(y & n)) c = 1;
+			*dst++ = c;
+		}
+	}
+}
+
+static void genMapTest()
+{
+	uint8 *dst = &tilemap3d[TILEMAP_LAYER_SIZE];
+	for (int i=1; i<TILEMAP_LAYERS; ++i) {
 		uint8 n = ((1 << (2+i)) - 1) & 15;
 		for (int y=0; y<TILEMAP_HEIGHT; ++y) {
 			for (int x=0; x<TILEMAP_WIDTH; ++x) {
@@ -177,7 +192,6 @@ static void genMapTest()
 				} else {
 					if (!(x & n) && !(y & n)) c = 1;
 				}
-				if (i==0 && !(x & n) && !(y & n)) c = 1;
 				*dst++ = c;
 			}
 		}
@@ -198,6 +212,7 @@ void tilemap3dInit()
 {
 	memset(tilemap3d, 0, sizeof(tilemap3d));
 
+	genMapFloor();
 	//genMapTest();
 	loadMapTest();
 
@@ -372,13 +387,10 @@ static void updateTilemapEdges(Vec3 *pos, uint8 layer)
 // 931,180
 // 919,155
 
-#define GOOD_SIDES_PRIORITY
-
 static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 {
 	const int tileRowOffset = layer * TILEMAP_LAYER_SIZE + tmapGridInfo.y0 * TILEMAP_WIDTH;
 	ScreenPoint *tileSp = &tileScrPt[tileRowOffset];
-	ScreenPoint ***tileMeshSpPtr = &tileMeshScreenPointPtr[tileRowOffset];
 
 	int x0 = tmapGridInfo.x0;
 	int y0 = tmapGridInfo.y0;
@@ -403,70 +415,61 @@ static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 		tileSp += TILEMAP_WIDTH;
 	}
 
-	uint8 colStart = 1 + 2 * layer;
+	uint8 colStart = ((layer+1) * 16) / TILEMAP_LAYERS;
+	if (colStart > 15) colStart = 15;
+
+	ScreenPoint ***tileMeshSpPtr = &tileMeshScreenPointPtr[tileRowOffset];
+	uint8 *tmap = &tilemap3d[tileRowOffset];
 	for (int y=y0; y<y1; ++y) {
 		for (int x=x0; x<x1; ++x) {
 			ScreenPoint **spQuad = tileMeshSpPtr[x];
 			if (spQuad) {
-				uint8 color = colStart;
+				uint8 color = colStart + (tmap[x] << 4);
 
 				// X
 				if (spQuad[0] && spQuad[0]->x > spQuad[1]->x) {
 					drawQuad(spQuad, color, vram);
 				}
-				color+=2; spQuad+=4;
+				color--; spQuad+=4;
 				if (spQuad[0] && spQuad[0]->x < spQuad[1]->x) {
 					drawQuad(spQuad, color, vram);
 				}
-				color+=2; spQuad+=4;
+				color--; spQuad+=4;
 
 				// Y
 				if (spQuad[0] && spQuad[0]->y > spQuad[1]->y) {
 					drawQuad(spQuad, color, vram);
 				}
-				color+=2; spQuad+=4;
+				color--; spQuad+=4;
 				if (spQuad[0] && spQuad[0]->y < spQuad[1]->y) {
 					drawQuad(spQuad, color, vram);
 				}
-
-				// If we don't do caps last (a bit more performance)
-				#ifndef GOOD_SIDES_PRIORITY
-					color+=2; spQuad+=4;
-					if (spQuad[0]) {
-						//drawQuad(spQuad, color, vram);
-						#ifdef FILL_SHAPES_ASM
-							drawRectangleAsm(spQuad[3], spQuad[1], color, vram);
-						#else
-							drawRectangle(spQuad[3], spQuad[1], color, vram);
-						#endif
-					}
-				#endif
 			}
 		}
 		tileMeshSpPtr += TILEMAP_WIDTH;
+		tmap += TILEMAP_WIDTH;
 	}
 
-	// What if we do caps last in separate layer loop (no clipping errors on sides)
-	#ifdef GOOD_SIDES_PRIORITY
-		tileMeshSpPtr = &tileMeshScreenPointPtr[tileRowOffset];
-		colStart = 1 + 2 * layer + 8;
-		for (int y=y0; y<y1; ++y) {
-			for (int x=x0; x<x1; ++x) {
-				ScreenPoint **spQuad = tileMeshSpPtr[x];
-				if (spQuad) {
-					if (spQuad[16]) {
-						//drawQuad(&spQuad[16], colStart, vram);
-						#ifdef FILL_SHAPES_ASM
-							drawRectangleAsm(spQuad[16+3], spQuad[16+1], colStart, vram);
-						#else
-							drawRectangle(spQuad[16+3], spQuad[16+1], colStart, vram);
-						#endif
-					}
+	tileMeshSpPtr = &tileMeshScreenPointPtr[tileRowOffset];
+	tmap = &tilemap3d[tileRowOffset];
+	for (int y=y0; y<y1; ++y) {
+		for (int x=x0; x<x1; ++x) {
+			ScreenPoint **spQuad = tileMeshSpPtr[x];
+			if (spQuad) {
+				if (spQuad[16]) {
+					uint8 color = colStart;
+					if (layer>0) color += (tmap[x] << 4);
+					#ifdef FILL_SHAPES_ASM
+						drawRectangleAsm(spQuad[16+3], spQuad[16+1], color, vram);
+					#else
+						drawRectangle(spQuad[16+3], spQuad[16+1], color, vram);
+					#endif
 				}
 			}
-			tileMeshSpPtr += TILEMAP_WIDTH;
 		}
-	#endif
+		tileMeshSpPtr += TILEMAP_WIDTH;
+		tmap += TILEMAP_WIDTH;
+	}
 }
 
 static void renderTilemap3dLayerQuads(uint8 color, uint8 *tmap, uint8 *vram)
