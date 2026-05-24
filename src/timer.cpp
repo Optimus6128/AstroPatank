@@ -16,6 +16,7 @@ static int nFrames = 0;
 
 #define TIMER_INTERRUPT 0x08
 
+static uint32 *my_clock = (uint32*)0x046C;
 
 void timerClearInterrupt()
 {
@@ -130,7 +131,8 @@ uint32 getTime()
 	#ifndef SOUND_ON
 		return (uint32)timeValue;
 	#else
-		return getMusTicks();	// as I connected MUSplay and it takes away the timer interrupt (and alternatives like chaining it failed or I did it badly), I return this instead.
+		//return getMusTicks();	// as I connected MUSplay and it takes away the timer interrupt (and alternatives like chaining it failed or I did it badly), I return this instead.
+		return (uint32)(*my_clock * (1000.0f / 18.2f));
 	#endif
 }
 

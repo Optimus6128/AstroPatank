@@ -88,7 +88,10 @@ static void input3D(int dt)
 	int prevPlayerPosY = playerPos.y;
 
 
+	//int tMov = 16 << PPOS_BITS;
 	int tMov = ((dt*playerMoveSpeed) << PPOS_BITS);
+
+	//int tMov = 16 << PPOS_BITS;
 
 	int pposX = playerPos.x << PPOS_BITS;
 	int pposY = playerPos.y << PPOS_BITS;

@@ -358,7 +358,7 @@ bool startMusPlayTest()
 uint32 getMusTicks()
 {
 	if (mus) {
-		return (uint32)(mus->time * (1000.0f / 140.0f));
+		return (uint32)((mus->time * 1000.0f) / 140.0f);
 	}
 	return 0;
 }

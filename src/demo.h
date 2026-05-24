@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-//#define SOUND_ON
+#define SOUND_ON
 
 #define SCR_W 320
 #define SCR_H 200
