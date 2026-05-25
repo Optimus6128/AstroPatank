@@ -159,7 +159,10 @@ static void loadMapTest()
 			uint8 b = *src++;
 			uint8 c = *csrc++;
 			for (int i=0; i<3; ++i) {
-				if (b & (1<<i)) *(dst + (i+1)*TILEMAP_LAYER_SIZE) = c;
+				if (b & (1<<i)) {
+					if (c==0) c = b & 7;
+					*(dst + (i+1)*TILEMAP_LAYER_SIZE) = c;
+				}
 			}
 			dst++;
 		}
