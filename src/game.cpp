@@ -44,21 +44,22 @@ static int8 *objMeshData[NUM_OBJECTS] = {	objQuadData, objTripodData, objPyramid
 static Mesh *objectMesh[NUM_OBJECTS];
 
 static Vec3 playerPos;
-static Vec3 centeredViewPos;
+
 static int playerAngle = 0;
 static int playerThrustX = 0;
 static int playerThrustY = 0;
 static int playerMoveSpeed = 4;
 static int playerAngleSpeed = 2;
-static int playerZoomSpeed = 4;
 static int playerLayer = 0;
 
-static int soundDuration = 32;
+static Vec3 centeredViewPos;
+static int viewZoomSpeed = 4;
 
 
 static bool checkPlayerCollision(uint8 *tmap)
 {
-	if (playerLayer < 0  || playerLayer >= TILEMAP_LAYERS) return false;
+	if (playerPos.x < TILE_SIZE || playerPos.x >= (TILEMAP_WIDTH - 1) * TILE_SIZE || playerPos.y < TILE_SIZE || playerPos.y >= (TILEMAP_HEIGHT - 1) * TILE_SIZE) return true;
+	if (playerLayer < 0  || playerLayer >= TILEMAP_LAYERS-1) return false;
 
 	const int playerSize = TILE_SIZE / 6;
 	int tx0 = (playerPos.x - playerSize) / TILE_SIZE;
@@ -71,7 +72,7 @@ static bool checkPlayerCollision(uint8 *tmap)
 	CLAMP(ty0,0,TILEMAP_HEIGHT-1)
 	CLAMP(ty1,0,TILEMAP_HEIGHT-1)
 
-	tmap = &tmap[playerLayer * TILEMAP_LAYER_SIZE];
+	tmap = &tmap[(playerLayer + 1) * TILEMAP_LAYER_SIZE];
 
 	return (tmap[ty0*TILEMAP_WIDTH+tx0] || tmap[ty0*TILEMAP_WIDTH+tx1] || tmap[ty1*TILEMAP_WIDTH+tx0] || tmap[ty1*TILEMAP_WIDTH+tx1]);
 }
@@ -81,7 +82,7 @@ static bool checkPlayerCollision(uint8 *tmap)
 
 static void input3D(int dt)
 {
-	uint8* tmap = &getTilemap3D()[TILEMAP_LAYER_SIZE];
+	uint8* tmap = getTilemap3D();
 
 	//static bool leftPressed = false;
 	//static bool rightPressed = false;
@@ -95,7 +96,7 @@ static void input3D(int dt)
 	int prevPlayerPosY = playerPos.y;
 
 	int tAng = (dt*playerAngleSpeed) << PPOS_BITS;
-	int tZoom = (dt*playerZoomSpeed) << PPOS_BITS;
+	int tZoom = (dt*viewZoomSpeed) << PPOS_BITS;
 
 	int pposX = playerPos.x << PPOS_BITS;
 	int pposY = playerPos.y << PPOS_BITS;
@@ -186,12 +187,12 @@ static void input3D(int dt)
 
 	if (buttonsHeld.renderPrev & !rPrevPressed) {
 		playerPos.z -= TILE_HEIGHT;
-		CLAMP(playerPos.z, 0, 4 * TILE_HEIGHT);
+		CLAMP(playerPos.z, 0, 3 * TILE_HEIGHT);
 		//advTileRenderType(false);
 	}
 	if (buttonsHeld.renderNext & !rNextPressed) {
 		playerPos.z += TILE_HEIGHT;
-		CLAMP(playerPos.z, 0, 4 * TILE_HEIGHT);
+		CLAMP(playerPos.z, 0, 3 * TILE_HEIGHT);
 		//advTileRenderType(true);
 	}
 
@@ -298,6 +299,8 @@ static void drawPalette(uint8 *vram)
 	}
 }
 
+/*static int soundDuration = 32;
+
 static void soundRun()
 {
 	if (soundDuration-- > 0) {
@@ -305,7 +308,7 @@ static void soundRun()
 	} else {
 		stopSoundTest();
 	}
-}
+}*/
 
 void gameInit()
 {
