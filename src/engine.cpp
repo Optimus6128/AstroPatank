@@ -268,13 +268,14 @@ static void renderMeshPolys(Mesh *ms, uint8 *vram)
 	int polyIndexBase = 0;
 
 	const int count = ms->numPolys;
+
 	for (int i=0; i<count; ++i) {
 		int edgesNum = *src++;
 		if (edgesNum >= 3) {
 			ScreenPoint *p0 = &scrPoints[src[0]];
 			ScreenPoint *p1 = &scrPoints[src[1]];
 			ScreenPoint *p2 = &scrPoints[src[2]];
-
+	
 			if (scrPolyVis[i] != 0) {
 				const int p0z = scrPoints[src[0]].z;
 				const int p1z = scrPoints[src[1]].z;

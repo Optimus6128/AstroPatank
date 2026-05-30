@@ -24,6 +24,8 @@
 #include "meshdata.h"
 
 
+#define GROUND_Z 3072
+
 #define NUM_OBJECTS 17
 #define PPOS_BITS 8
 
@@ -41,21 +43,23 @@ static int8 *objMeshData[NUM_OBJECTS] = {	objQuadData, objTripodData, objPyramid
 
 static Mesh *objectMesh[NUM_OBJECTS];
 
-static int renderMethod = RENDER_POLYS;
-
 static Vec3 playerPos;
+static Vec3 centeredViewPos;
 static int playerAngle = 0;
 static int playerThrustX = 0;
 static int playerThrustY = 0;
 static int playerMoveSpeed = 4;
 static int playerAngleSpeed = 2;
 static int playerZoomSpeed = 4;
+static int playerLayer = 0;
 
 static int soundDuration = 32;
 
 
 static bool checkPlayerCollision(uint8 *tmap)
 {
+	if (playerLayer < 0  || playerLayer >= TILEMAP_LAYERS) return false;
+
 	const int playerSize = TILE_SIZE / 6;
 	int tx0 = (playerPos.x - playerSize) / TILE_SIZE;
 	int ty0 = (playerPos.y - playerSize) / TILE_SIZE;
@@ -66,6 +70,8 @@ static bool checkPlayerCollision(uint8 *tmap)
 	CLAMP(tx1,0,TILEMAP_WIDTH-1)
 	CLAMP(ty0,0,TILEMAP_HEIGHT-1)
 	CLAMP(ty1,0,TILEMAP_HEIGHT-1)
+
+	tmap = &tmap[playerLayer * TILEMAP_LAYER_SIZE];
 
 	return (tmap[ty0*TILEMAP_WIDTH+tx0] || tmap[ty0*TILEMAP_WIDTH+tx1] || tmap[ty1*TILEMAP_WIDTH+tx0] || tmap[ty1*TILEMAP_WIDTH+tx1]);
 }
@@ -95,6 +101,8 @@ static void input3D(int dt)
 	int pposY = playerPos.y << PPOS_BITS;
 	int pposZ = playerPos.z << PPOS_BITS;
 	int pAngle = playerAngle << PPOS_BITS;
+
+	int cposZ = centeredViewPos.z << PPOS_BITS;
 
 	if (buttonsHeld.down) {
 		tAng = -tAng;
@@ -150,6 +158,10 @@ static void input3D(int dt)
 		pposY += tMovY;
 	}
 
+	playerPos.z = pposZ >> PPOS_BITS;
+	playerLayer = playerPos.z / TILE_HEIGHT;
+	CLAMP(playerLayer, 0, TILEMAP_LAYERS-1);
+
 	playerPos.x = pposX >> PPOS_BITS;
 	if (checkPlayerCollision(tmap)) {
 		playerPos.x = prevPlayerPosX;
@@ -162,23 +174,25 @@ static void input3D(int dt)
 		playerThrustY = -(playerThrustY * 12) >> 4;
 	}
 
-
 	if (buttonsHeld.zoomIn) {
-		if (pposZ > (2048 << PPOS_BITS)) {
-			pposZ -= tZoom;
+		if (cposZ > (2048 << PPOS_BITS)) {
+			cposZ -= tZoom;
 		}
 	}
-
 	if (buttonsHeld.zoomOut) {
-		pposZ += tZoom;
+		cposZ += tZoom;
 	}
-	playerPos.z = pposZ >> PPOS_BITS;
+	centeredViewPos.z = cposZ >> PPOS_BITS;
 
 	if (buttonsHeld.renderPrev & !rPrevPressed) {
-		advTileRenderType(false);
+		playerPos.z -= TILE_HEIGHT;
+		CLAMP(playerPos.z, 0, 4 * TILE_HEIGHT);
+		//advTileRenderType(false);
 	}
 	if (buttonsHeld.renderNext & !rNextPressed) {
-		advTileRenderType(true);
+		playerPos.z += TILE_HEIGHT;
+		CLAMP(playerPos.z, 0, 4 * TILE_HEIGHT);
+		//advTileRenderType(true);
 	}
 
 	rPrevPressed = buttonsHeld.renderPrev;
@@ -224,9 +238,7 @@ static void scriptSpaceship3D(Mesh *ms)
 
 	ms->pos.x = 0;
 	ms->pos.y = 0;
-	ms->pos.z = playerPos.z;
-
-	ms->renderMode = renderMethod;
+	ms->pos.z = centeredViewPos.z - playerPos.z;
 }
 
 static void scriptCube3D(Mesh *ms, int t)
@@ -241,16 +253,19 @@ static void scriptCube3D(Mesh *ms, int t)
 
 	ms->pos.x = (vx * (8 + playerThrustX)) >> (4 + THRUST_BITS);
 	ms->pos.y = (vy * (8 + playerThrustY)) >> (4 + THRUST_BITS);
-	ms->pos.z = playerPos.z;
-
-	ms->renderMode = renderMethod;
+	ms->pos.z = centeredViewPos.z - playerPos.z;
 }
 
 static void updateScene3D(Screen *screen, int t)
 {
 	Mesh *ms;
 
-	renderTilemap3dLayer(&playerPos, 0, screen);
+	centeredViewPos.x = playerPos.x;
+	centeredViewPos.y = playerPos.y;
+
+	for (int i=0; i<=playerLayer; ++i) {
+		renderTilemap3dLayer(&centeredViewPos, i, screen);
+	}
 
 	ms = objectMesh[OBJ_TRIPOD];
 	scriptCube3D(ms, t);
@@ -260,8 +275,8 @@ static void updateScene3D(Screen *screen, int t)
 	scriptSpaceship3D(ms);
 	renderMesh(ms, screen);
 
-	for (int i=1; i<TILEMAP_LAYERS; ++i) {
-		renderTilemap3dLayer(&playerPos, i, screen);
+	for (int i=playerLayer+1; i<TILEMAP_LAYERS; ++i) {
+		renderTilemap3dLayer(&centeredViewPos, i, screen);
 	}
 }
 
@@ -304,7 +319,9 @@ void gameInit()
 
 	playerPos.x = (TILEMAP_WIDTH / 2) * TILE_SIZE - 3*TILE_SIZE;
 	playerPos.y = (TILEMAP_HEIGHT / 2) * TILE_SIZE - 2*TILE_SIZE;
-	playerPos.z = 2048+1024;
+	playerPos.z = 0;
+
+	centeredViewPos.z = GROUND_Z;
 
 	tilemap3dInit();
 

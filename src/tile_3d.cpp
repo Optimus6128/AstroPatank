@@ -34,7 +34,7 @@ typedef struct TilemapGridInfo
 static uint8 tilemap3d[TILEMAP_SIZE];
 static TilemapGridInfo tmapGridInfo;
 
-static int tileRenderType = TILE_RENDER_DOTS;
+static int tileRenderType = TILE_RENDER_MESH;
 
 static ScreenPoint tileScrPt[TILEMAP_POINTS_SIZE];
 static ScreenPoint **tileMeshScreenPointPtr[TILEMAP_SIZE];
@@ -368,7 +368,7 @@ static void findTilemapExtends(int posI, int iRange, int edgeI, int *tmapI0, int
 
 static void updateTilemapEdges(Vec3 *pos, uint8 layer)
 {
-	int layerZ = pos->z - TILE_HEIGHT * layer;
+	int layerZ = pos->z - GET_Z_AT_LAYER(layer);
 	int edgeZ = layerZ;
 	if (layer > 0) {
 		edgeZ += TILE_HEIGHT;

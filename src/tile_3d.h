@@ -20,6 +20,8 @@
 #define TILEMAP_POINTS_LAYER_SIZE (TILEMAP_POINTS_W * TILEMAP_POINTS_H)
 #define TILEMAP_POINTS_SIZE (TILEMAP_POINTS_LAYER_SIZE * TILEMAP_LAYERS)
 
+#define GET_Z_AT_LAYER(i) (TILE_HEIGHT * (i))
+
 void tilemap3dInit();
 void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen);
 
