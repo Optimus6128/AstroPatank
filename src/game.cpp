@@ -29,7 +29,7 @@
 #define NUM_OBJECTS 17
 #define PPOS_BITS 8
 
-#define NUM_THINGS 4
+#define NUM_THINGS 16
 
 typedef struct GameThing
 {
@@ -54,6 +54,9 @@ static int8 *objMeshData[NUM_OBJECTS] = { 	objQuadData, objTripodData, objPyrami
 
 static Mesh *objectMesh[NUM_OBJECTS];
 
+static int objsInLayer[TILEMAP_LAYERS+1][NUM_THINGS];
+static int layerObjCount[TILEMAP_LAYERS+1];
+
 static Vec3 playerPos;
 
 static int playerAngle = 0;
@@ -72,7 +75,7 @@ static void initThings()
 	thing[0].alive = true;
 
 	for (int i=1; i<NUM_THINGS; ++i) {
-		thing[i].mesh = objectMesh[OBJ_GLENZ];
+		thing[i].mesh = objectMesh[OBJ_CUBE];
 		thing[i].alive = true;
 	}
 }
@@ -265,7 +268,7 @@ static void renderObject(int i, Screen *screen)
 	renderMesh(ms, screen);
 }
 
-static void scriptObject(int i, Screen *screen, int t)
+static void scriptObject(int i, int t)
 {
 	if (i < 0 || i >= NUM_THINGS) return;
 
@@ -286,21 +289,23 @@ static void scriptObject(int i, Screen *screen, int t)
 
 		default:
 		{
-			int vx = sinTab[(playerAngle + i * (SINTAB_SIZE / 16))& (SINTAB_SIZE - 1)];
-			int vy = sinTab[(playerAngle + i * (SINTAB_SIZE / 16) - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)];
+			int vx = sinTab[(t + i * (SINTAB_SIZE / 15))& (SINTAB_SIZE - 1)];
+			int vy = sinTab[(t + i * (SINTAB_SIZE / 15) - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)];
 
 			gt->rot.x = t;
 			gt->rot.y = 2*t;
 			gt->rot.z = 3*t;
 
-			gt->pos.x = playerPos.x + ((vx * (-2 + 4 * (-i + playerThrustX))) >> (4 + THRUST_BITS));
-			gt->pos.y = playerPos.y - ((vy * (-2 + 4 * (-i + playerThrustY))) >> (4 + THRUST_BITS));
+			gt->pos.x = playerPos.x + ((vx * 64) >> (4 + THRUST_BITS));
+			gt->pos.y = playerPos.y - ((vy * 64) >> (4 + THRUST_BITS));
 			gt->pos.z = playerPos.z;
 		}
 		break;
 	}
 
-	renderObject(i, screen);
+	int layerIndex = gt->pos.z / TILE_HEIGHT;
+	CLAMP(layerIndex, 0, TILEMAP_LAYERS);
+	objsInLayer[layerIndex][layerObjCount[layerIndex]++] = i;
 }
 
 static void updateScene3D(Screen *screen, int t)
@@ -310,14 +315,20 @@ static void updateScene3D(Screen *screen, int t)
 	centeredViewPos.x = playerPos.x;
 	centeredViewPos.y = playerPos.y;
 
-	for (int n=0; n<TILEMAP_LAYERS; ++n) {
-		renderTilemap3dLayer(&centeredViewPos, n, screen);
-		for (int i=0; i<NUM_THINGS; ++i) {
-			int layerOver = thing[i].pos.z / TILE_HEIGHT;
-			CLAMP(layerOver, 0, TILEMAP_LAYERS);
-			if (layerOver == n) {
-				scriptObject(i, screen, t);
-			}
+	memset(layerObjCount, 0, (TILEMAP_LAYERS+1) * sizeof(int));
+	for (int i=0; i<NUM_THINGS; ++i) {
+		scriptObject(i, t);
+	}
+
+	for (int n=0; n<TILEMAP_LAYERS+1; ++n) {
+		if (n < TILEMAP_LAYERS) {
+			renderTilemap3dLayer(&centeredViewPos, n, screen);
+		}
+
+		const int layerCount = layerObjCount[n];
+		int *layerSrc = objsInLayer[n];
+		for (int i=0; i<layerCount; ++i) {
+			renderObject(i, screen);
 		}
 	}
 }
@@ -356,8 +367,14 @@ void gameInit()
 	initEngine();
 
 	for (int i=0; i<NUM_OBJECTS; ++i) {
+		int gridScaleShift = 3;
+		if (i==OBJ_CUBE) {
+			gridScaleShift = 4;
+		}
+
 		objectMesh[i] = initMeshFromCPCdata(objMeshData[i]);
-		objectMesh[i]->gridScale >>= 3;
+		objectMesh[i]->gridScale >>= gridScaleShift;
+
 		//reversePolygonOrder(objectMesh[i]); // Why did this work on EGA but here we shouldn't be doing it?
 	}
 
