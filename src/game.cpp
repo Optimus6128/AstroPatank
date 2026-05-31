@@ -256,7 +256,10 @@ static void renderObject(int i, Screen *screen)
 	GameThing *gt = &thing[i];
 	Mesh *ms = gt->mesh;
 
-	ms->pos = centeredViewPos - gt->pos;
+	ms->pos.x = gt->pos.x - centeredViewPos.x;
+	ms->pos.y = centeredViewPos.y - gt->pos.y;
+	ms->pos.z = centeredViewPos.z - gt->pos.z;
+
 	ms->rot = gt->rot;
 
 	renderMesh(ms, screen);
@@ -290,8 +293,8 @@ static void scriptObject(int i, Screen *screen, int t)
 			gt->rot.y = 2*t;
 			gt->rot.z = 3*t;
 
-			gt->pos.x = playerPos.x + 256;//- ((vx * (16 * (i + 1) + playerThrustX)) >> (4 + THRUST_BITS));
-			gt->pos.y = playerPos.y + 256;//- ((vy * (16 * (i + 1) + playerThrustY)) >> (4 + THRUST_BITS));
+			gt->pos.x = playerPos.x + ((vx * (-2 + 4 * (-i + playerThrustX))) >> (4 + THRUST_BITS));
+			gt->pos.y = playerPos.y - ((vy * (-2 + 4 * (-i + playerThrustY))) >> (4 + THRUST_BITS));
 			gt->pos.z = playerPos.z;
 		}
 		break;
