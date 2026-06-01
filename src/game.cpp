@@ -29,7 +29,7 @@
 #define NUM_OBJECTS 17
 #define PPOS_BITS 8
 
-#define NUM_THINGS 16
+#define NUM_THINGS 64
 
 typedef struct GameThing
 {
@@ -75,8 +75,13 @@ static void initThings()
 	thing[0].alive = true;
 
 	for (int i=1; i<NUM_THINGS; ++i) {
-		thing[i].mesh = objectMesh[OBJ_CUBE];
-		thing[i].alive = true;
+		if (i < 4) {
+			thing[i].mesh = objectMesh[OBJ_CUBE];
+			thing[i].alive = true;
+		} else {
+			thing[i].mesh = NULL;
+			thing[i].alive = false;
+		}
 	}
 }
 
@@ -258,6 +263,7 @@ static void renderObject(int i, Screen *screen)
 {
 	GameThing *gt = &thing[i];
 	Mesh *ms = gt->mesh;
+	if (!ms) return;
 
 	ms->pos.x = gt->pos.x - centeredViewPos.x;
 	ms->pos.y = centeredViewPos.y - gt->pos.y;
@@ -274,6 +280,8 @@ static void scriptObject(int i, int t)
 
 	GameThing *gt = &thing[i];
 
+	if (!gt->alive) return;
+
 	switch(i) {
 		case 0:
 		{
@@ -289,8 +297,8 @@ static void scriptObject(int i, int t)
 
 		default:
 		{
-			int vx = sinTab[(t + i * (SINTAB_SIZE / 15))& (SINTAB_SIZE - 1)];
-			int vy = sinTab[(t + i * (SINTAB_SIZE / 15) - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)];
+			int vx = sinTab[(t + i * (SINTAB_SIZE / 3))& (SINTAB_SIZE - 1)];
+			int vy = sinTab[(t + i * (SINTAB_SIZE / 3) - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)];
 
 			gt->rot.x = t;
 			gt->rot.y = 2*t;
@@ -328,7 +336,7 @@ static void updateScene3D(Screen *screen, int t)
 		const int layerCount = layerObjCount[n];
 		int *layerSrc = objsInLayer[n];
 		for (int i=0; i<layerCount; ++i) {
-			renderObject(i, screen);
+			renderObject(layerSrc[i], screen);
 		}
 	}
 }
