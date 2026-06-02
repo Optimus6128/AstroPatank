@@ -386,8 +386,8 @@ void gameInit()
 		//reversePolygonOrder(objectMesh[i]); // Why did this work on EGA but here we shouldn't be doing it?
 	}
 
-	playerPos.x = (TILEMAP_WIDTH / 2) * TILE_SIZE - 3*TILE_SIZE;
-	playerPos.y = (TILEMAP_HEIGHT / 2) * TILE_SIZE - 2*TILE_SIZE;
+	playerPos.x = (TILEMAP_WIDTH / 2) * TILE_SIZE + TILE_SIZE / 2;
+	playerPos.y = (TILEMAP_HEIGHT / 2) * TILE_SIZE + TILE_SIZE / 2;
 	playerPos.z = 0;
 
 	centeredViewPos.z = GROUND_Z;
