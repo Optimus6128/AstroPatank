@@ -26,7 +26,6 @@
 
 #define GROUND_Z 3072
 
-#define NUM_OBJECTS 17
 #define PPOS_BITS 8
 
 #define NUM_THINGS 64
@@ -46,13 +45,26 @@ enum {
 	OBJ_DRUM, OBJ_CROSS,
 	OBJ_SPACESHIP,
 	OBJ_TORUS, OBJ_CUBESTAR,
-	OBJ_TEST3, OBJ_ROMBUS_RING, OBJ_TORUS2, OBJ_EIGHT_CUBES
+	OBJ_TEST3, OBJ_ROMBUS_RING, OBJ_TORUS2, OBJ_EIGHT_CUBES,
+	OBJ_LASER,
+	OBJ_LETTER_A,
+	OBJ_LETTER_S,
+	OBJ_LETTER_T,
+	OBJ_LETTER_R,
+	OBJ_LETTER_O,
+	OBJ_LETTER_P,
+	OBJ_LETTER_N,
+	OBJ_LETTER_K,
+	NUM_MESHES
 };
 
-static int8 *objMeshData[NUM_OBJECTS] = { 	objQuadData, objTripodData, objPyramidData, objRombusData, objCubeData, objGlenzData, objUfoData, objUfo2Data, objDrumData, objSquareCrossData, 
-											objSpaceship1Data, objTorusData, objCubeStarData, objTest3Data, objRombusRingData, objTorus2Data, objEightCubesData };
+static int8 *objMeshData[NUM_MESHES] =	{ 	objQuadData, objTripodData, objPyramidData, objRombusData, objCubeData, objGlenzData, objUfoData, objUfo2Data, objDrumData, objSquareCrossData, 
+											objSpaceship1Data, objTorusData, objCubeStarData, objTest3Data, objRombusRingData, objTorus2Data, objEightCubesData, 
+											objLaserData, 
+											objLetterAData, objLetterSData, objLetterTData, objLetterRData, objLetterOData, objLetterPData, objLetterNData, objLetterKData
+										};
 
-static Mesh *objectMesh[NUM_OBJECTS];
+static Mesh *objectMesh[NUM_MESHES];
 
 static int objsInLayer[TILEMAP_LAYERS+1][NUM_THINGS];
 static int layerObjCount[TILEMAP_LAYERS+1];
@@ -76,7 +88,7 @@ static void initThings()
 
 	for (int i=1; i<NUM_THINGS; ++i) {
 		if (i < 4) {
-			thing[i].mesh = objectMesh[OBJ_CUBE];
+			thing[i].mesh = objectMesh[OBJ_UFO2 + i - 1];
 			thing[i].alive = true;
 		} else {
 			thing[i].mesh = NULL;
@@ -92,7 +104,7 @@ static bool checkPlayerCollision(uint8 *tmap)
 	if (playerPos.x < TILE_SIZE || playerPos.x >= (TILEMAP_WIDTH - 1) * TILE_SIZE || playerPos.y < TILE_SIZE || playerPos.y >= (TILEMAP_HEIGHT - 1) * TILE_SIZE) return true;
 	if (playerLayer < 0  || playerLayer >= TILEMAP_LAYERS-1) return false;
 
-	const int playerSize = TILE_SIZE / 6;
+	const int playerSize = TILE_SIZE / 4;
 	int tx0 = (playerPos.x - playerSize) / TILE_SIZE;
 	int ty0 = (playerPos.y - playerSize) / TILE_SIZE;
 	int tx1 = (playerPos.x + playerSize) / TILE_SIZE;
@@ -374,14 +386,14 @@ void gameInit()
 {
 	initEngine();
 
-	for (int i=0; i<NUM_OBJECTS; ++i) {
-		int gridScaleShift = 3;
-		if (i==OBJ_CUBE) {
-			gridScaleShift = 4;
+	for (int i=0; i<NUM_MESHES; ++i) {
+		int gridScaleMul = 16;
+		if (i==OBJ_SPACESHIP) {
+			gridScaleMul = 48;
 		}
 
 		objectMesh[i] = initMeshFromCPCdata(objMeshData[i]);
-		objectMesh[i]->gridScale >>= gridScaleShift;
+		objectMesh[i]->gridScale = (objectMesh[i]->gridScale * gridScaleMul) >> 8;
 
 		//reversePolygonOrder(objectMesh[i]); // Why did this work on EGA but here we shouldn't be doing it?
 	}
