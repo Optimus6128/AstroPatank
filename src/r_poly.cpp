@@ -185,7 +185,7 @@ static inline void fillScanlines(uint8 color, uint8 *vram)
 	};
 }
 
-static inline void prepareScanlines(ScreenPoint *p0, ScreenPoint *p1, uint16 antialiasBits, bool leftSide)
+static inline void prepareScanlines(ScreenPoint2D *p0, ScreenPoint2D *p1, uint16 antialiasBits, bool leftSide)
 {
 	int x0 = p0->x;
 	int y0 = p0->y;
@@ -246,7 +246,7 @@ static inline void prepareScanlines(ScreenPoint *p0, ScreenPoint *p1, uint16 ant
 	}
 }
 
-static inline void prepareEdgeScanlinesFlatAntialiased(ScreenPoint* p0, ScreenPoint* p1, uint8 adjacentPolysNum)
+static inline void prepareEdgeScanlinesFlatAntialiased(ScreenPoint2D* p0, ScreenPoint2D* p1, uint8 adjacentPolysNum)
 {
 	int py0 = p0->y >> SCR_BITS;
 	int py1 = p1->y >> SCR_BITS;
@@ -264,7 +264,7 @@ static inline void prepareEdgeScanlinesFlatAntialiased(ScreenPoint* p0, ScreenPo
 	}
 }
 
-static inline void prepareEdgeScanlinesFlat(ScreenPoint* p0, ScreenPoint* p1)
+static inline void prepareEdgeScanlinesFlat(ScreenPoint2D* p0, ScreenPoint2D* p1)
 {
 	int py0 = p0->y >> SCR_BITS;
 	int py1 = p1->y >> SCR_BITS;
@@ -284,9 +284,9 @@ void drawPolyAntialiased(ScreenPoint *p[], uint8 *edgeAdjacentPolysNum, int edge
 	yScanlineMax = -1;
 
 	for (int i=0; i<edgesNum-1; ++i) {
-		prepareEdgeScanlinesFlatAntialiased(p[i],p[i+1], *edgeAdjacentPolysNum++);
+		prepareEdgeScanlinesFlatAntialiased((ScreenPoint2D*)p[i], (ScreenPoint2D*)p[i+1], *edgeAdjacentPolysNum++);
 	}
-	prepareEdgeScanlinesFlatAntialiased(p[edgesNum-1],p[0], *edgeAdjacentPolysNum);
+	prepareEdgeScanlinesFlatAntialiased((ScreenPoint2D*)p[edgesNum-1], (ScreenPoint2D*)p[0], *edgeAdjacentPolysNum);
 
 	uint8 col = ((color&7)<<4)+15;
 
@@ -307,9 +307,9 @@ void drawPoly(ScreenPoint *p[], int edgesNum, uint8 color, uint8 *vram)
 	yScanlineMax = -1;
 
 	for (int i=0; i<edgesNum-1; ++i) {
-		prepareEdgeScanlinesFlat(p[i],p[i+1]);
+		prepareEdgeScanlinesFlat((ScreenPoint2D*)p[i], (ScreenPoint2D*)p[i+1]);
 	}
-	prepareEdgeScanlinesFlat(p[edgesNum-1],p[0]);
+	prepareEdgeScanlinesFlat((ScreenPoint2D*)p[edgesNum-1], (ScreenPoint2D*)p[0]);
 
 	uint8 col = ((color&7)<<4)+15;
 
@@ -324,7 +324,7 @@ void drawPoly(ScreenPoint *p[], int edgesNum, uint8 color, uint8 *vram)
 #endif
 }
 
-void drawQuad(ScreenPoint *p[], uint8 color, uint8 *vram)
+void drawQuad(ScreenPoint2D *p[], uint8 color, uint8 *vram)
 {
 	yScanlineMin = SCR_H;
 	yScanlineMax = -1;

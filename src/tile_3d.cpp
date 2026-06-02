@@ -36,19 +36,23 @@ static TilemapGridInfo tmapGridInfo;
 
 static int tileRenderType = TILE_RENDER_MESH;
 
-static ScreenPoint tileScrPt[TILEMAP_POINTS_SIZE];
+static ScreenPoint2D tileScrPt[TILEMAP_POINTS_SIZE];
 
 #define TILEMAP_NO_INDEX 65535
 static uint16 tileMeshScreenPointIndex[TILEMAP_SIZE];
 
-static ScreenPoint *scrPlist[TILEMAP_SIZE * (4 / 2) * 6];		// good theoritical maximum? Will reduce..
-static ScreenPoint **spNext = scrPlist;
+#define MAX_BLOCKS_PER_MAP (TILEMAP_SIZE / 8)
+static ScreenPoint2D *scrPlist[MAX_BLOCKS_PER_MAP * 24];		// good theoritical maximum? Will reduce.
+																// So I devide TILEMAP_SIZE by 4 to reduce to a sensible. The current map uses 1380 filled blocks, this goes to 4096 (from 16384). I could also assert or something.
+																// Could have map information that lets me allocate and free the exact, will see. But for now I want this to run on 2MB instead of requiring 4.
+																// EDIT: Can barely make it run with 3MB now (other things reduced in engine). If I am at this safe place so at worse it requires 4MB I will be ok.
+static ScreenPoint2D **spNext = scrPlist;
 
 
 #define FILL_SHAPES_ASM
 
 extern "C" {
-	void drawRectangleAsm(ScreenPoint *p0, ScreenPoint *p1, uint8 color, uint8 *vram);
+	void drawRectangleAsm(ScreenPoint2D *p0, ScreenPoint2D *p1, uint8 color, uint8 *vram);
 }
 
 
@@ -60,7 +64,7 @@ uint8* getTilemap3D()
 static void buildTilemapMesh()
 {
 	uint8 *src = tilemap3d;
-	ScreenPoint *srcPt = tileScrPt;
+	ScreenPoint2D *srcPt = tileScrPt;
 	uint16 *dstIndex = tileMeshScreenPointIndex;
 	uint16 currentIndex = 0;
 
@@ -139,6 +143,7 @@ static void buildTilemapMesh()
 
 					if (sidesCount > 0) {
 						*dstIndex = currentIndex++;
+						//if (currentIndex==MAX_BLOCKS_PER_MAP) break;
 					} else {
 						spNext -= 24;
 					}
@@ -151,6 +156,7 @@ static void buildTilemapMesh()
 		}
 		srcPt += TILEMAP_POINTS_W;
 	}
+	//printf("%d ", currentIndex);
 }
 
 static void fillLayerRect(int x0, int y0, int x1, int y1, int layer)
@@ -310,7 +316,7 @@ static void drawRectangleLines(int x0, int y0, int x1, int y1, uint8 color, uint
 	}
 }
 
-static void drawRectangle(ScreenPoint *p0, ScreenPoint *p1, uint8 color, uint8 *vram)
+static void drawRectangle(ScreenPoint2D *p0, ScreenPoint2D *p1, uint8 color, uint8 *vram)
 {
 	int x0 = p0->x >> SCR_BITS;
 	int y0 = p0->y >> SCR_BITS;
@@ -407,7 +413,7 @@ static void updateTilemapEdges(Vec3 *pos, uint8 layer)
 
 static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 {
-	ScreenPoint *tileSp = &tileScrPt[layer * TILEMAP_POINTS_LAYER_SIZE + tmapGridInfo.y0 * TILEMAP_POINTS_W];
+	ScreenPoint2D *tileSp = &tileScrPt[layer * TILEMAP_POINTS_LAYER_SIZE + tmapGridInfo.y0 * TILEMAP_POINTS_W];
 
 	int x0 = tmapGridInfo.x0;
 	int y0 = tmapGridInfo.y0;
@@ -437,7 +443,7 @@ static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 		for (int x=x0; x<x1; ++x) {
 			uint16 index = tileSpIndex[x];
 			if (index != TILEMAP_NO_INDEX) {
-				ScreenPoint **spQuad = &scrPlist[24 * index];
+				ScreenPoint2D **spQuad = &scrPlist[24 * index];
 
 				uint8 color = colStart + (tmap[x] << 4);
 
@@ -471,7 +477,7 @@ static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 		for (int x=x0; x<x1; ++x) {
 			uint16 index = tileSpIndex[x];
 			if (index != TILEMAP_NO_INDEX) {
-				ScreenPoint **spQuad = &scrPlist[24 * index];
+				ScreenPoint2D **spQuad = &scrPlist[24 * index];
 				if (spQuad[16]) {
 					uint8 color = colStart;
 					if (layer>0) color += (tmap[x] << 4);
@@ -501,7 +507,7 @@ static void renderTilemap3dLayerQuads(uint8 color, uint8 *tmap, uint8 *vram)
 		int xs = tmapGridInfo.xs0;
 		for (int x=x0; x<x1; ++x) {
 			if (tmap[x]) {
-				ScreenPoint p0, p1;
+				ScreenPoint2D p0, p1;
 				p0.x = xs; p1.x = xs+step;
 				p0.y = ys; p1.y = ys+step;
 				#ifdef FILL_SHAPES_ASM

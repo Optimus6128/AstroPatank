@@ -10,7 +10,7 @@
 #include "render.h"
 #include "vector.h"
 
-#define NUM_POINTS_GRID_HALF 128
+#define NUM_POINTS_GRID_HALF 8
 #define NUM_POINTS_AXIS (2*NUM_POINTS_GRID_HALF+1)
 
 int sinTab[SINTAB_SIZE];
@@ -28,9 +28,9 @@ static ScreenPoint scrPoints[MAX_VERTEX_POINTS];
 static char scrPolyVis[MAX_POLYS];
 
 
-#define Z_BUCKET_RANGE 64
+#define Z_BUCKET_RANGE 256
 #define Z_BUCKETS_NUM (262144 / Z_BUCKET_RANGE)
-#define Z_BUCKET_MAX_POLYS 32
+#define Z_BUCKET_MAX_POLYS 16
 
 typedef struct ZBucket
 {

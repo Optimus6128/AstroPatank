@@ -7,8 +7,8 @@
 
 #define Z_NEAR 32
 
-#define MAX_VERTEX_POINTS 4096
-#define MAX_POLYS 1024
+#define MAX_VERTEX_POINTS 128
+#define MAX_POLYS 64
 
 #define RANGE_BITS(b) (1 << (b))
 #define AND_BITS(b) (RANGE_BITS(b) - 1)
@@ -37,6 +37,11 @@ enum {
 	RENDER_POLYS,
 	RENDER_METHODS
 };
+
+typedef struct ScreenPoint2D
+{
+	int x,y;
+} ScreenPoint2D;
 
 typedef struct ScreenPoint
 {
