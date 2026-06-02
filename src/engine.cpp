@@ -27,10 +27,11 @@ static ScreenPoint scrPoints[MAX_VERTEX_POINTS];
 
 static char scrPolyVis[MAX_POLYS];
 
-
+// No need to care much for such small polys in this game about sorting (reduced all values too short)
+#define MAX_AVG_Z 4096
 #define Z_BUCKET_RANGE 256
-#define Z_BUCKETS_NUM (262144 / Z_BUCKET_RANGE)
-#define Z_BUCKET_MAX_POLYS 16
+#define Z_BUCKETS_NUM (MAX_AVG_Z / Z_BUCKET_RANGE)
+#define Z_BUCKET_MAX_POLYS 32
 
 typedef struct ZBucket
 {
@@ -287,6 +288,8 @@ static void renderMeshPolys(Mesh *ms, uint8 *vram)
 
 				// find bucket index
 				int zBucketIndex = avgZ / Z_BUCKET_RANGE;
+				if (zBucketIndex > Z_BUCKETS_NUM - 1) zBucketIndex = Z_BUCKETS_NUM - 1;
+
 				if (zBucketIndex < zBucketIndexMin) zBucketIndexMin = zBucketIndex;
 				if (zBucketIndex > zBucketIndexMax) zBucketIndexMax = zBucketIndex;
 

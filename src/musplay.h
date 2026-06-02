@@ -3,9 +3,17 @@
 
 #include "types.h"
 
-bool startMusPlayTest();
-void stopMusPlayTest();
-void runMusPlayTest();
+enum {
+	MUS_INTRO,
+	MUS_GAME,
+	MUS_NUM
+};
+
+bool loadMusDriver();
+bool loadMusFile(int musIndex);
+void playMusFile(int musIndex);
+void stopMusPlay();
+void shutdownMusPlay();
 
 uint32 getMusTicks();
 

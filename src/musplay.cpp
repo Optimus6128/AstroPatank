@@ -95,17 +95,19 @@ extern unsigned _heaplen = 10240;
 const int	maxDriver = DRV_SBMIDI;
 uint	driver = DRV_DUMMY;		/* sound driver # */
 uint	port;				/* base port */
-uint	handle;				/* MUS handle */
+uint	handle[MUS_NUM];				/* MUS handle */
 char   *bankname;			/* General MIDI bank filename */
 
 uint	SBPort     = SBPROPORT;
 uint	AWE32Port  = AWE32PORT;
 uint	MPU401Port = MPU401PORT;
 
+int currentMusIndex = -1;
+
 const char *searchPath[8] = {"", NULL};
 
 /* Command-line parameters */
-char   *musname = "astropa.mus";
+char   *musname[MUS_NUM] = { "astropai.mus", "astropa.mus" };
 char   *userbankname = NULL;
 uint	help = 0;
 //char   *execCmd = NULL;
@@ -256,18 +258,23 @@ static int detectHardware(void)
     return driver;
 }
 
-void stopMusPlayTest()
+void stopMusPlay()
 {
-	MLstop(handle);
-	MLfreeHandle(handle);
-    MLshutdownTimer();
+	if (currentMusIndex >= 0 && currentMusIndex < MUS_NUM) {
+		MLstop(handle[currentMusIndex]);
+		MLfreeHandle(handle[currentMusIndex]);
+		currentMusIndex = -1;
+	}
 }
 
-bool startMusPlayTest()
+void shutdownMusPlay()
 {
-    int fd;
-    int retcode;
+	stopMusPlay();
+	MLshutdownTimer();
+}
 
+bool loadMusDriver()
+{
 	addSearchPath(".\\");
 
     /* initialize MUSLIB */
@@ -281,76 +288,67 @@ bool startMusPlayTest()
     MLaddDriver(&SBMIDIdriver);
 
     /* detect music hardware */
-    if (!detectHardware())
-	return false;
+    if (!detectHardware()) {
+		return false;
+	}
 
     /* initialize timer and sound hardware */
-    if (MLinitTimer(timer))
-    {
-	//printf("FATAL ERROR: Cannot initialize timer. Aborting.\n");
-	return false;
+    if (MLinitTimer(timer)) {
+		printf("FATAL ERROR: Cannot initialize timer. Aborting.\n");
+		return false;
     }
-//    MLinitDriver(driver);
-    if (MLinitHardware(driver, port, -1, -1))
-    {
-	MLshutdownTimer();
-	//printf("FATAL ERROR: Cannot initialize hardware. Aborting.\n");
-	return false;
+	// MLinitDriver(driver);
+    if (MLinitHardware(driver, port, -1, -1)) {
+		MLshutdownTimer();
+		printf("FATAL ERROR: Cannot initialize hardware. Aborting.\n");
+		return false;
     }
+
+	return true;
+}
+
+bool loadMusFile(int musIndex)
+{
+    int fd;
+
+	if (musIndex < 0 || musIndex >= MUS_NUM) return false;
 
     /* load MUS file */
     /* the file must be open in binary mode */
-    if ( (fd = open(musname, O_RDONLY|O_BINARY)) == -1)
-    {
-	//printf("Can't open file %s\n", musname);
-	return false;
-    } else
-	//printf("Reading file %s ... ", musname);
+    if ( (fd = open(musname[musIndex], O_RDONLY|O_BINARY)) == -1) {
+		printf("Can't open file %s\n", musname);
+		return false;
+    }
 
-    handle = MLallocHandle(driver);
-    if (MLloadMUS(handle, fd, 0xFFFF))
-    {
-	close(fd);
-	//printf("Can't load file %s\n", musname);
-	return false;
+    handle[musIndex] = MLallocHandle(driver);
+    if (MLloadMUS(handle[musIndex], fd, 0xFFFF)) {
+		close(fd);
+		printf("Can't load file %s\n", musname);
+		return false;
     }
     close(fd);
-    {
-	//static char *mem[] = {"Error", "Low", "EMS", "XMS"};
-	//puts(mem[MLgetBlock(handle)->score.bufferType]);
-    }
-
-#ifdef DEBUG
-    //printf("DEBUG: coreleft = %lu\n", (long)coreleft());
-#endif
 
     /* load instrument bank */
-    if (userbankname)
-	bankname = userbankname;
-    if (bankname)
-    {
-	if ( (fd = openFile(bankname)) == -1)
-	{
-	    //printf("Can't open file %s\n", bankname);
-	    return false;
-	} else
-	    //printf("Reading file %s ...\n", bankname);
-	if (MLloadBank(driver, fd, 0))
-	{
-	    close(fd);
-	    //printf("Can't load bank %s\n", bankname);
-	    return false;
+    if (userbankname) {
+		bankname = userbankname;
 	}
-	close(fd);
+    if (bankname) {
+		if ( (fd = openFile(bankname)) == -1) {
+			printf("Can't open file %s\n", bankname);
+			return false;
+		}
+		if (MLloadBank(driver, fd, 0)) {
+			close(fd);
+			printf("Can't load bank %s\n", bankname);
+			return false;
+		}
+		close(fd);
     }
-#ifdef DEBUG
-    //printf("DEBUG: coreleft = %lu\n", (long)coreleft());
-#endif
 
     MLdriverParam(driver, DP_SINGLE_VOICE, singlevoice, NULL);
 
-    MLsetLoopCount(handle, loopCount);
-    MLsetVolume(handle, volume);
+    MLsetLoopCount(handle[musIndex], loopCount);
+    MLsetVolume(handle[musIndex], volume);
 
     return true;
 }
@@ -363,9 +361,12 @@ uint32 getMusTicks()
 	return 0;
 }
 
-void runMusPlayTest()
+void playMusFile(int musIndex)
 {
-    mus = MLgetBlock(handle);
+	if (musIndex >= 0 && musIndex < MUS_NUM) {
+		mus = MLgetBlock(handle[musIndex]);
+		MLplay(handle[musIndex]);
 
-    MLplay(handle);
+		currentMusIndex = musIndex;
+	}
 }

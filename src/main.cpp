@@ -31,7 +31,7 @@ static void initSystem()
 {
 	#ifdef SOUND_ON
 		//initSound();
-		startMusPlayTest();
+		loadMusDriver();
 		delay(500);
 	#endif
 
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 	deinitKeyboard();
 
 	#ifdef SOUND_ON
-		stopMusPlayTest();
+		shutdownMusPlay();
 		//deinitSound();
 	#endif
 

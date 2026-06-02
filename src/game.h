@@ -31,4 +31,8 @@ typedef struct Screen
 void gameInit();
 void gameRun(Screen *screen, int t);
 
+void setIsInGame(bool inGame);
+
+void startGameMusic(int musIndex);
+
 #endif

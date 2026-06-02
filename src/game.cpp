@@ -9,6 +9,7 @@
 #include "mathutil.h"
 
 #include "game.h"
+#include "intro.h"
 #include "tile_3d.h"
 #include "video.h"
 #include "input.h"
@@ -22,7 +23,6 @@
 #include "mesh.h"
 
 #include "meshdata.h"
-
 
 #define GROUND_Z 3072
 
@@ -80,6 +80,29 @@ static int playerAngleSpeed = 2;
 static Vec3 centeredViewPos;
 static int viewZoomSpeed = 4;
 
+static bool isInGame = false;
+
+
+void switchGameMusic()
+{
+	stopMusPlay();
+
+	if (isInGame) {
+		loadMusFile(MUS_GAME);
+		playMusFile(MUS_GAME);
+	} else {
+		loadMusFile(MUS_INTRO);
+		playMusFile(MUS_INTRO);
+	}
+}
+
+void setIsInGame(bool inGame)
+{
+	if (isInGame==inGame) return;
+	isInGame = inGame;
+
+	switchGameMusic();
+}
 
 static void initThings()
 {
@@ -410,7 +433,9 @@ void gameInit()
 
 	setupPalette3D();
 
-	runMusPlayTest();
+	menuInit();
+
+	switchGameMusic();
 }
 
 void gameRun(Screen *screen, int t)
@@ -419,9 +444,12 @@ void gameRun(Screen *screen, int t)
 
 	clearScreen(screen);
 
-	input3D(t - t0);
-
-	updateScene3D(screen, t);
+	if (isInGame) {
+		input3D(t - t0);
+		updateScene3D(screen, t);
+	} else {
+		menuRun(screen, t);
+	}
 
 	//soundRun();
 
