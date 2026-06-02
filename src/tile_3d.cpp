@@ -37,7 +37,10 @@ static TilemapGridInfo tmapGridInfo;
 static int tileRenderType = TILE_RENDER_MESH;
 
 static ScreenPoint tileScrPt[TILEMAP_POINTS_SIZE];
-static ScreenPoint **tileMeshScreenPointPtr[TILEMAP_SIZE];
+
+#define TILEMAP_NO_INDEX 65535
+static uint16 tileMeshScreenPointIndex[TILEMAP_SIZE];
+
 static ScreenPoint *scrPlist[TILEMAP_SIZE * (4 / 2) * 6];		// good theoritical maximum? Will reduce..
 static ScreenPoint **spNext = scrPlist;
 
@@ -58,21 +61,23 @@ static void buildTilemapMesh()
 {
 	uint8 *src = tilemap3d;
 	ScreenPoint *srcPt = tileScrPt;
-	ScreenPoint ***dst = tileMeshScreenPointPtr;
+	uint16 *dstIndex = tileMeshScreenPointIndex;
+	uint16 currentIndex = 0;
 
 	for (int i=0; i<TILEMAP_LAYERS; ++i) {
 		for (int y=0; y<TILEMAP_HEIGHT; ++y) {
 			for (int x=0; x<TILEMAP_WIDTH; ++x) {
-				*dst = NULL; // if it finds zero quads later, NULL to know to skip
+				*dstIndex = TILEMAP_NO_INDEX;
 				uint8 c = *src;
 				if (c != 0) {
-					*dst = spNext;
+					uint8 sidesCount = 0;
 					if (i > 0) {
 						if (x==0 || *(src - 1)==0) {
 							spNext[0] = &srcPt[0];
 							spNext[1] = &srcPt[-TILEMAP_POINTS_LAYER_SIZE];
 							spNext[2] = &srcPt[-TILEMAP_POINTS_LAYER_SIZE+TILEMAP_POINTS_W];
 							spNext[3] = &srcPt[TILEMAP_POINTS_W];
+							sidesCount++;
 						} else {
 							spNext[0] = NULL;
 						}
@@ -83,6 +88,7 @@ static void buildTilemapMesh()
 							spNext[1] = &srcPt[-TILEMAP_POINTS_LAYER_SIZE+1+TILEMAP_POINTS_W];
 							spNext[2] = &srcPt[-TILEMAP_POINTS_LAYER_SIZE+1];
 							spNext[3] = &srcPt[1];
+							sidesCount++;
 						} else {
 							spNext[0] = NULL;
 						}
@@ -93,6 +99,7 @@ static void buildTilemapMesh()
 							spNext[1] = &srcPt[-TILEMAP_POINTS_LAYER_SIZE+1];
 							spNext[2] = &srcPt[-TILEMAP_POINTS_LAYER_SIZE];
 							spNext[3] = &srcPt[0];
+							sidesCount++;
 						} else {
 							spNext[0] = NULL;
 						}
@@ -103,6 +110,7 @@ static void buildTilemapMesh()
 							spNext[1] = &srcPt[-TILEMAP_POINTS_LAYER_SIZE+TILEMAP_POINTS_W];
 							spNext[2] = &srcPt[-TILEMAP_POINTS_LAYER_SIZE+TILEMAP_POINTS_W+1];
 							spNext[3] = &srcPt[TILEMAP_POINTS_W+1];
+							sidesCount++;
 						}
 						else {
 							spNext[0] = NULL;
@@ -120,6 +128,7 @@ static void buildTilemapMesh()
 						spNext[1] = &srcPt[1+TILEMAP_POINTS_W];
 						spNext[2] = &srcPt[1];
 						spNext[3] = &srcPt[0];
+						sidesCount++;
 					} else {
 						spNext[0] = NULL;
 					}
@@ -127,9 +136,15 @@ static void buildTilemapMesh()
 
 					spNext[0] = NULL;
 					spNext += 4;
+
+					if (sidesCount > 0) {
+						*dstIndex = currentIndex++;
+					} else {
+						spNext -= 24;
+					}
 				}
 				srcPt++;
-				dst++;
+				dstIndex++;
 				src++;
 			}
 			srcPt++;
@@ -416,12 +431,14 @@ static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 	if (colStart > 15) colStart = 15;
 
 	const int tileRowOffset = layer * TILEMAP_LAYER_SIZE + tmapGridInfo.y0 * TILEMAP_WIDTH;
-	ScreenPoint ***tileMeshSpPtr = &tileMeshScreenPointPtr[tileRowOffset];
+	uint16 *tileSpIndex = &tileMeshScreenPointIndex[tileRowOffset];
 	uint8 *tmap = &tilemap3d[tileRowOffset];
 	for (int y=y0; y<y1; ++y) {
 		for (int x=x0; x<x1; ++x) {
-			ScreenPoint **spQuad = tileMeshSpPtr[x];
-			if (spQuad) {
+			uint16 index = tileSpIndex[x];
+			if (index != TILEMAP_NO_INDEX) {
+				ScreenPoint **spQuad = &scrPlist[24 * index];
+
 				uint8 color = colStart + (tmap[x] << 4);
 
 				// X
@@ -444,16 +461,17 @@ static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 				}
 			}
 		}
-		tileMeshSpPtr += TILEMAP_WIDTH;
+		tileSpIndex += TILEMAP_WIDTH;
 		tmap += TILEMAP_WIDTH;
 	}
 
-	tileMeshSpPtr = &tileMeshScreenPointPtr[tileRowOffset];
+	tileSpIndex = &tileMeshScreenPointIndex[tileRowOffset];
 	tmap = &tilemap3d[tileRowOffset];
 	for (int y=y0; y<y1; ++y) {
 		for (int x=x0; x<x1; ++x) {
-			ScreenPoint **spQuad = tileMeshSpPtr[x];
-			if (spQuad) {
+			uint16 index = tileSpIndex[x];
+			if (index != TILEMAP_NO_INDEX) {
+				ScreenPoint **spQuad = &scrPlist[24 * index];
 				if (spQuad[16]) {
 					uint8 color = colStart;
 					if (layer>0) color += (tmap[x] << 4);
@@ -465,7 +483,7 @@ static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 				}
 			}
 		}
-		tileMeshSpPtr += TILEMAP_WIDTH;
+		tileSpIndex += TILEMAP_WIDTH;
 		tmap += TILEMAP_WIDTH;
 	}
 }
@@ -570,9 +588,8 @@ void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen)
 			renderTilemap3DLayerMesh(layer, vram);
 		break;
 	}
-
-//printf("%d ", 4 * (uint32)(spNext - scrPlist));
 }
 
-// start   : 2013, 1595, 866 (2037, 1594, 833)
-// zoom out: 621, 230, 250 (613, 206, 198)
+// P166
+// start   : 1008
+// zoom out: 100
