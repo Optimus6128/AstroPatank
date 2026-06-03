@@ -31,9 +31,14 @@
 
 #define NUM_THINGS 64
 
+#define BULLET_TIME_MAX 32
+#define BULLET_THING_BASE 1
+#define MAX_BULLETS 3
+
+
 typedef struct GameThing
 {
-	Vec3 pos, rot;
+	Vec3 pos, rot, vel;
 	Mesh *mesh;
 	bool alive;
 } GameThing;
@@ -77,6 +82,9 @@ static int playerThrustX = 0;
 static int playerThrustY = 0;
 static int playerMoveSpeed = 4;
 static int playerAngleSpeed = 2;
+
+static int currentBullet = 0;
+static int playerBulletTime = 0;
 
 static Vec3 centeredViewPos;
 static int viewZoomSpeed = 4;
@@ -125,7 +133,7 @@ static void initThings()
 
 	for (int i=1; i<4; ++i) {
 		thing[i].mesh = objectMesh[OBJ_LASER];
-		thing[i].alive = true;
+		thing[i].alive = false;
 	}
 }
 
@@ -150,6 +158,28 @@ static bool checkPlayerCollision(uint8 *tmap)
 	tmap = &tmap[(playerLayer + 1) * TILEMAP_LAYER_SIZE];
 
 	return (tmap[ty0*TILEMAP_WIDTH+tx0] || tmap[ty0*TILEMAP_WIDTH+tx1] || tmap[ty1*TILEMAP_WIDTH+tx0] || tmap[ty1*TILEMAP_WIDTH+tx1]);
+}
+
+static void updateBullets()
+{
+	for (int i = 0; i < MAX_BULLETS; ++i) {
+		GameThing *gt = &thing[BULLET_THING_BASE + i];
+		if (gt->alive) {
+			gt->pos += gt->vel;
+		}
+	}
+}
+
+static void spawnBullet(Vec3 &pos, Vec3 &rot, Vec3 &vel)
+{
+	GameThing *gt = &thing[BULLET_THING_BASE + currentBullet];
+
+	gt->pos = pos;
+	gt->rot = rot;
+	gt->vel = vel;
+	gt->alive = true;
+
+	currentBullet = (currentBullet + 1) % MAX_BULLETS;
 }
 
 #define THRUST_BITS 6
@@ -220,7 +250,26 @@ static void input3D(int dt)
 		}
 	}
 
-	if (buttonsHeld.fire) {
+	if (buttonsHeld.fire && playerBulletTime==0) {
+		Vec3 bPos;
+		Vec3 bVel;
+		Vec3 bRot;
+
+		bVel.x = -((64 << PPOS_BITS) * sinTab[playerAngle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+		bVel.y = ((64 << PPOS_BITS) * sinTab[(playerAngle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+		bVel.z = 0;
+
+		bPos.x = pposX + bVel.x;
+		bPos.y = pposY + bVel.y;
+		bPos.z = pposZ;
+
+		bRot.x = SINTAB_SIZE >> 2;
+		bRot.y = playerAngle;
+		bRot.z = 0;
+
+		spawnBullet(bPos, bRot, bVel);
+
+		playerBulletTime = BULLET_TIME_MAX;
 	}
 
 	if (buttonsHeld.escape) {
@@ -316,9 +365,9 @@ static void renderObject(int i, Screen *screen)
 	Mesh *ms = gt->mesh;
 	if (!ms) return;
 
-	ms->pos.x = gt->pos.x - centeredViewPos.x;
-	ms->pos.y = centeredViewPos.y - gt->pos.y;
-	ms->pos.z = centeredViewPos.z - gt->pos.z;
+	ms->pos.x = (gt->pos.x >> PPOS_BITS) - centeredViewPos.x;
+	ms->pos.y = centeredViewPos.y - (gt->pos.y >> PPOS_BITS);
+	ms->pos.z = centeredViewPos.z - (gt->pos.z >> PPOS_BITS);
 
 	ms->rot = gt->rot;
 
@@ -340,24 +389,9 @@ static void scriptObject(int i, int t)
 			gt->rot.y = playerAngle;
 			gt->rot.z = 0;
 
-			gt->pos.x = playerPos.x;
-			gt->pos.y = playerPos.y;
-			gt->pos.z = playerPos.z;
-		}
-		break;
-
-		default:
-		{
-			int vx = sinTab[(t + i * (SINTAB_SIZE / 3))& (SINTAB_SIZE - 1)];
-			int vy = sinTab[(t + i * (SINTAB_SIZE / 3) - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)];
-
-			gt->rot.x = SINTAB_SIZE >> 2;
-			gt->rot.y = t;
-			gt->rot.z = 0;
-
-			gt->pos.x = playerPos.x + ((vx * 64) >> (4 + THRUST_BITS));
-			gt->pos.y = playerPos.y - ((vy * 64) >> (4 + THRUST_BITS));
-			gt->pos.z = playerPos.z;
+			gt->pos.x = playerPos.x << PPOS_BITS;
+			gt->pos.y = playerPos.y << PPOS_BITS;
+			gt->pos.z = playerPos.z << PPOS_BITS;
 		}
 		break;
 	}
@@ -365,6 +399,10 @@ static void scriptObject(int i, int t)
 	int layerIndex = gt->pos.z / TILE_HEIGHT;
 	CLAMP(layerIndex, 0, TILEMAP_LAYERS);
 	objsInLayer[layerIndex][layerObjCount[layerIndex]++] = i;
+}
+
+static void updateGameplay(int t, int dt) {
+	if (playerBulletTime > 0) playerBulletTime--;
 }
 
 static void updateScene3D(Screen *screen, int t)
@@ -378,6 +416,7 @@ static void updateScene3D(Screen *screen, int t)
 	for (int i=0; i<NUM_THINGS; ++i) {
 		scriptObject(i, t);
 	}
+	updateBullets();
 
 	for (int n=0; n<TILEMAP_LAYERS+1; ++n) {
 		if (n < TILEMAP_LAYERS) {
@@ -430,7 +469,7 @@ void gameInit()
 		int gridScaleMulY = 40;
 		int gridScaleMulZ = 40;
 		if (i==OBJ_LASER) {
-			gridScaleMulX = 12;
+			gridScaleMulX = 16;
 			gridScaleMulY = 16;
 			gridScaleMulZ = 32;
 		}
@@ -470,6 +509,7 @@ void gameRun(Screen *screen, int t)
 
 	if (isInGame) {
 		input3D(t - t0);
+		updateGameplay(t, t - t0);
 		updateScene3D(screen, t);
 	} else {
 		menuRun(screen, t);
