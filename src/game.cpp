@@ -34,7 +34,7 @@
 #define PLAYER_THING_BASE 0
 #define NUM_PLAYERS 1
 
-#define BULLET_TIME_MAX 32
+#define BULLET_TIME_MAX 64
 #define BULLET_THING_BASE (PLAYER_THING_BASE + NUM_PLAYERS)
 #define MAX_BULLETS 3
 
@@ -148,12 +148,28 @@ static bool checkThingMapCollision(GameThing *gt, uint8 *tmap)
 
 static void updateNarcs()
 {
+	uint8* tmap = getTilemap3D();
+
 	for (int i = 0; i < MAX_NARCS; ++i) {
 		GameThing *gt = &thing[NARC_THING_BASE + i];
 		if (gt->alive) {
-			gt->pos += gt->vel;
-			gt->rot.x += ((i & 3) << 4);
-			gt->rot.y += ((i & 7) << 3);
+			int prevPosX = gt->pos.x;
+			int prevPosY = gt->pos.y;
+
+			gt->pos.x += gt->vel.x;
+			if (checkThingMapCollision(gt, tmap)) {
+				gt->pos.x = prevPosX;
+				gt->vel.x = -gt->vel.x;
+			}
+
+			gt->pos.y += gt->vel.y;
+			if (checkThingMapCollision(gt, tmap)) {
+				gt->pos.y = prevPosY;
+				gt->vel.y = -gt->vel.y;
+			}
+
+			gt->rot.x += (((i & 3) + 1) << 4);
+			gt->rot.y += (((i & 7) + 1) << 3);
 			gt->rot.z += ((i & 15) << 2);
 		}
 	}
@@ -195,8 +211,8 @@ static void setRandomThingVelocity(GameThing *gt)
 {
 	int angle = getRand(0, SINTAB_SIZE-1);
 
-	gt->vel.x = -((1 << PPOS_BITS) * sinTab[angle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
-	gt->vel.y = ((1 << PPOS_BITS) * sinTab[(angle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+	gt->vel.x = -((16 << PPOS_BITS) * sinTab[angle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+	gt->vel.y = ((16 << PPOS_BITS) * sinTab[(angle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
 	gt->vel.z = 0;
 }
 
