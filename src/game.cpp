@@ -31,8 +31,11 @@
 
 #define NUM_THINGS 64
 
+#define PLAYER_THING_BASE 0
+#define NUM_PLAYERS 1
+
 #define BULLET_TIME_MAX 32
-#define BULLET_THING_BASE 1
+#define BULLET_THING_BASE (PLAYER_THING_BASE + NUM_PLAYERS)
 #define MAX_BULLETS 3
 
 #define NARC_THING_BASE (BULLET_THING_BASE + MAX_BULLETS)
@@ -68,9 +71,6 @@ static Mesh *objectMesh[NUM_MESHES];
 static int objsInLayer[TILEMAP_LAYERS+1][NUM_THINGS];
 static int layerObjCount[TILEMAP_LAYERS+1];
 
-static Vec3 playerPos;
-
-static int playerAngle = 0;
 static int playerThrustX = 0;
 static int playerThrustY = 0;
 static int playerMoveSpeed = 4;
@@ -117,27 +117,48 @@ void setIsInGame(bool inGame)
 	switchGameMusic();
 }
 
-static bool checkPlayerCollision(uint8 *tmap)
+static bool checkThingMapCollision(GameThing *gt, uint8 *tmap)
 {
-	int playerLayer = playerPos.z / TILE_HEIGHT;
+	Vec3 pos = gt->pos;
 
-	if (playerPos.x < TILE_SIZE || playerPos.x >= (TILEMAP_WIDTH - 1) * TILE_SIZE || playerPos.y < TILE_SIZE || playerPos.y >= (TILEMAP_HEIGHT - 1) * TILE_SIZE) return true;
-	if (playerLayer < 0  || playerLayer >= TILEMAP_LAYERS-1) return false;
+	pos.x >>= PPOS_BITS;
+	pos.y >>= PPOS_BITS;
+	pos.z >>= PPOS_BITS;
 
-	const int playerSize = TILE_SIZE / 4;
-	int tx0 = (playerPos.x - playerSize) / TILE_SIZE;
-	int ty0 = (playerPos.y - playerSize) / TILE_SIZE;
-	int tx1 = (playerPos.x + playerSize) / TILE_SIZE;
-	int ty1 = (playerPos.y + playerSize) / TILE_SIZE;
+	int layer = pos.z / TILE_HEIGHT;
+
+	if (pos.x < TILE_SIZE || pos.x >= (TILEMAP_WIDTH - 1) * TILE_SIZE || pos.y < TILE_SIZE || pos.y >= (TILEMAP_HEIGHT - 1) * TILE_SIZE) return true;
+	if (layer < 0  || layer >= TILEMAP_LAYERS-1) return false;
+
+	const int thingSize = TILE_SIZE / 4;
+	int tx0 = (pos.x - thingSize) / TILE_SIZE;
+	int ty0 = (pos.y - thingSize) / TILE_SIZE;
+	int tx1 = (pos.x + thingSize) / TILE_SIZE;
+	int ty1 = (pos.y + thingSize) / TILE_SIZE;
 
 	CLAMP(tx0,0,TILEMAP_WIDTH-1)
 	CLAMP(tx1,0,TILEMAP_WIDTH-1)
 	CLAMP(ty0,0,TILEMAP_HEIGHT-1)
 	CLAMP(ty1,0,TILEMAP_HEIGHT-1)
 
-	tmap = &tmap[(playerLayer + 1) * TILEMAP_LAYER_SIZE];
+	tmap = &tmap[(layer + 1) * TILEMAP_LAYER_SIZE];
 
 	return (tmap[ty0*TILEMAP_WIDTH+tx0] || tmap[ty0*TILEMAP_WIDTH+tx1] || tmap[ty1*TILEMAP_WIDTH+tx0] || tmap[ty1*TILEMAP_WIDTH+tx1]);
+}
+
+static void updateNarcs()
+{
+	for (int i = 0; i < MAX_NARCS; ++i) {
+		GameThing *gt = &thing[NARC_THING_BASE + i];
+		if (gt->alive) {
+			gt->pos += gt->vel;
+			gt->rot.x += ((i & 3) << 4);
+			gt->rot.y += ((i & 7) << 3);
+			gt->rot.z += ((i & 15) << 2);
+		}
+	}
+
+	if (playerBulletTime > 0) playerBulletTime--;
 }
 
 static void updateBullets()
@@ -148,6 +169,14 @@ static void updateBullets()
 			gt->pos += gt->vel;
 		}
 	}
+
+	if (playerBulletTime > 0) playerBulletTime--;
+}
+
+static void updateGameplay(int t, int dt)
+{
+	updateBullets();
+	updateNarcs();
 }
 
 static void spawnBullet(Vec3 &pos, Vec3 &rot, Vec3 &vel)
@@ -166,8 +195,8 @@ static void setRandomThingVelocity(GameThing *gt)
 {
 	int angle = getRand(0, SINTAB_SIZE-1);
 
-	gt->vel.x = -((16 << PPOS_BITS) * sinTab[angle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
-	gt->vel.y = ((16 << PPOS_BITS) * sinTab[(angle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+	gt->vel.x = -((1 << PPOS_BITS) * sinTab[angle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+	gt->vel.y = ((1 << PPOS_BITS) * sinTab[(angle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
 	gt->vel.z = 0;
 }
 
@@ -191,12 +220,27 @@ static void setRandomThingPosition(GameThing *gt, uint8 layer)
 	gt->pos.z = (layer * TILE_SIZE) << PPOS_BITS;
 }
 
+static void initPlayerThing()
+{
+	GameThing *gt = &thing[PLAYER_THING_BASE];
+
+	gt->mesh = objectMesh[OBJ_SPACESHIP];
+	gt->alive = true;
+
+	gt->pos.x = ((TILEMAP_WIDTH / 2) * TILE_SIZE + TILE_SIZE / 2) << PPOS_BITS;
+	gt->pos.y = ((TILEMAP_HEIGHT / 2) * TILE_SIZE + TILE_SIZE / 2) << PPOS_BITS;
+	gt->pos.z = 0;
+
+	gt->rot.x = SINTAB_SIZE >> 2;
+	gt->rot.y = 0;
+	gt->rot.z = 0;
+}
+
 static void initThings()
 {
 	memset(thing, 0, sizeof(GameThing) * NUM_THINGS);
 
-	thing[0].mesh = objectMesh[OBJ_SPACESHIP];
-	thing[0].alive = true;
+	initPlayerThing();
 
 	for (int i=0; i<MAX_BULLETS; ++i) {
 		GameThing *gt = &thing[BULLET_THING_BASE + i];
@@ -219,24 +263,20 @@ static void initThings()
 static void input3D(int dt)
 {
 	uint8* tmap = getTilemap3D();
-
-	//static bool leftPressed = false;
-	//static bool rightPressed = false;
-	//static bool upPressed = false;
-	//static bool downPressed = false;
+	GameThing *gt = &thing[PLAYER_THING_BASE];
+	Vec3 *pos = &gt->pos;
+	Vec3 *rot = &gt->rot;
 	
 	static bool rPrevPressed = false;
 	static bool rNextPressed = false;
 
-	int prevPlayerPosX = playerPos.x;
-	int prevPlayerPosY = playerPos.y;
+	int prevPlayerPosX = pos->x;
+	int prevPlayerPosY = pos->y;
 
 	int tAng = (dt*playerAngleSpeed) << PPOS_BITS;
 	int tZoom = (dt*viewZoomSpeed) << PPOS_BITS;
 
-	int pposX = playerPos.x << PPOS_BITS;
-	int pposY = playerPos.y << PPOS_BITS;
-	int pposZ = playerPos.z << PPOS_BITS;
+	int playerAngle = gt->rot.y;
 	int pAngle = playerAngle << PPOS_BITS;
 
 	int cposZ = centeredViewPos.z << PPOS_BITS;
@@ -252,6 +292,7 @@ static void input3D(int dt)
 		pAngle -= tAng;
 	}
 	playerAngle = pAngle >> PPOS_BITS;
+	gt->rot.y = playerAngle;
 
 	if (buttonsHeld.up) {
 		if (playerThrustX < THRUST_MAX) {
@@ -290,9 +331,9 @@ static void input3D(int dt)
 		bVel.y = ((64 << PPOS_BITS) * sinTab[(playerAngle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
 		bVel.z = 0;
 
-		bPos.x = pposX + bVel.x;
-		bPos.y = pposY + bVel.y;
-		bPos.z = pposZ;
+		bPos.x = pos->x + bVel.x;
+		bPos.y = pos->y + bVel.y;
+		bPos.z = pos->z;
 
 		bRot.x = SINTAB_SIZE >> 2;
 		bRot.y = playerAngle;
@@ -311,27 +352,23 @@ static void input3D(int dt)
 		int tMov = (dt*playerMoveSpeed*playerThrustX) << (PPOS_BITS - THRUST_BITS);
 		int tMovX = (tMov * sinTab[playerAngle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
 
-		pposX -= tMovX;
+		pos->x -= tMovX;
+	}
+
+	if (checkThingMapCollision(gt,tmap)) {
+		pos->x = prevPlayerPosX;
+		playerThrustX = -(playerThrustX * 12) >> 4;
 	}
 
 	if (playerThrustY != 0) {
 		int tMov = (dt*playerMoveSpeed*playerThrustY) << (PPOS_BITS - THRUST_BITS);
 		int tMovY = (tMov * sinTab[(playerAngle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
 
-		pposY += tMovY;
+		pos->y += tMovY;
 	}
 
-	playerPos.z = pposZ >> PPOS_BITS;
-
-	playerPos.x = pposX >> PPOS_BITS;
-	if (checkPlayerCollision(tmap)) {
-		playerPos.x = prevPlayerPosX;
-		playerThrustX = -(playerThrustX * 12) >> 4;
-	}
-
-	playerPos.y = pposY >> PPOS_BITS;
-	if (checkPlayerCollision(tmap)) {
-		playerPos.y = prevPlayerPosY;
+	if (checkThingMapCollision(gt,tmap)) {
+		pos->y = prevPlayerPosY;
 		playerThrustY = -(playerThrustY * 12) >> 4;
 	}
 
@@ -346,24 +383,16 @@ static void input3D(int dt)
 	centeredViewPos.z = cposZ >> PPOS_BITS;
 
 	if (buttonsHeld.renderPrev & !rPrevPressed) {
-		playerPos.z -= TILE_HEIGHT;
-		CLAMP(playerPos.z, 0, 3 * TILE_HEIGHT);
-		//advTileRenderType(false);
+		pos->z -= (TILE_HEIGHT << PPOS_BITS);
+		CLAMP(pos->z, 0, 3 * (TILE_HEIGHT << PPOS_BITS));
 	}
 	if (buttonsHeld.renderNext & !rNextPressed) {
-		playerPos.z += TILE_HEIGHT;
-		CLAMP(playerPos.z, 0, 3 * TILE_HEIGHT);
-		//advTileRenderType(true);
+		pos->z += (TILE_HEIGHT << PPOS_BITS);
+		CLAMP(pos->z, 0, 3 * (TILE_HEIGHT << PPOS_BITS));
 	}
 
 	rPrevPressed = buttonsHeld.renderPrev;
 	rNextPressed = buttonsHeld.renderNext;
-	
-
-	//leftPressed = buttonsHeld.left;
-	//rightPressed = buttonsHeld.right;
-	//upPressed = buttonsHeld.up;
-	//downPressed = buttonsHeld.down;
 }
 
 static void setupPalette3D()
@@ -405,49 +434,29 @@ static void renderObject(int i, Screen *screen)
 	renderMesh(ms, screen);
 }
 
-static void scriptObject(int i, int t)
+static void updateThingsLayerLists()
 {
-	if (i < 0 || i >= NUM_THINGS) return;
+	memset(layerObjCount, 0, (TILEMAP_LAYERS+1) * sizeof(int));
 
-	GameThing *gt = &thing[i];
+	for (int i=0; i<NUM_THINGS; ++i) {
+		GameThing *gt = &thing[i];
 
-	if (!gt->alive) return;
+		if (!gt->alive) continue;
 
-	switch(i) {
-		case 0:
-		{
-			gt->rot.x = SINTAB_SIZE >> 2;
-			gt->rot.y = playerAngle;
-			gt->rot.z = 0;
-
-			gt->pos.x = playerPos.x << PPOS_BITS;
-			gt->pos.y = playerPos.y << PPOS_BITS;
-			gt->pos.z = playerPos.z << PPOS_BITS;
-		}
-		break;
+		int layerIndex = (gt->pos.z >> PPOS_BITS) / TILE_HEIGHT;
+		CLAMP(layerIndex, 0, TILEMAP_LAYERS);
+		objsInLayer[layerIndex][layerObjCount[layerIndex]++] = i;
 	}
-
-	int layerIndex = gt->pos.z / TILE_HEIGHT;
-	CLAMP(layerIndex, 0, TILEMAP_LAYERS);
-	objsInLayer[layerIndex][layerObjCount[layerIndex]++] = i;
-}
-
-static void updateGameplay(int t, int dt) {
-	if (playerBulletTime > 0) playerBulletTime--;
 }
 
 static void updateScene3D(Screen *screen, int t)
 {
 	Mesh *ms;
 
-	centeredViewPos.x = playerPos.x;
-	centeredViewPos.y = playerPos.y;
+	centeredViewPos.x = thing[PLAYER_THING_BASE].pos.x >> PPOS_BITS;
+	centeredViewPos.y = thing[PLAYER_THING_BASE].pos.y >> PPOS_BITS;
 
-	memset(layerObjCount, 0, (TILEMAP_LAYERS+1) * sizeof(int));
-	for (int i=0; i<NUM_THINGS; ++i) {
-		scriptObject(i, t);
-	}
-	updateBullets();
+	updateThingsLayerLists();
 
 	for (int n=0; n<TILEMAP_LAYERS+1; ++n) {
 		if (n < TILEMAP_LAYERS) {
@@ -512,10 +521,6 @@ void gameInit()
 
 		//reversePolygonOrder(objectMesh[i]); // Why did this work on EGA but here we shouldn't be doing it?
 	}
-
-	playerPos.x = (TILEMAP_WIDTH / 2) * TILE_SIZE + TILE_SIZE / 2;
-	playerPos.y = (TILEMAP_HEIGHT / 2) * TILE_SIZE + TILE_SIZE / 2;
-	playerPos.z = 0;
 
 	centeredViewPos.z = GROUND_Z;
 
