@@ -341,6 +341,31 @@ static void renderMeshLines(Mesh *ms, uint8 *vram)
 	} while(--count != 0);
 }
 
+void renderAntialiasedDot(int sx, int sy, int colorBase, uint8 *vram)
+{
+	const int xp = sx >> SCR_BITS;
+	const int yp = sy >> SCR_BITS;
+
+	uint8 *dst = vram + VRAM_PIXEL_OFFSET((xp>>UNCHAINED_BITS),yp);
+
+	const int fracX1 = (sx & AND_BITS(SCR_BITS + UNCHAINED_BITS)) >> (SCR_BITS + UNCHAINED_BITS - SHADE_BITS);
+	const int fracY1 = (sy & AND_BITS(SCR_BITS + UNCHAINED_BITS)) >> (SCR_BITS + UNCHAINED_BITS - SHADE_BITS);
+	const int fracX0 = SHADE_AND - fracX1;
+	const int fracY0 = SHADE_AND - fracY1;
+
+	*dst = colorBase + ((fracX0 * fracY0) >> SHADE_BITS);
+	if (xp < SCR_W - 1) {
+		*(dst+1) = colorBase + ((fracX1 * fracY0) >> SHADE_BITS);
+	}
+	if (yp < SCR_H - 1) {
+		dst += SCR_LINE_BYTES;
+		*dst = colorBase + ((fracX0 * fracY1) >> SHADE_BITS);
+		if (xp < SCR_W - 1) {
+			*(dst + 1) = colorBase + ((fracX1 * fracY1) >> SHADE_BITS);
+		}
+	}
+}
+
 static void renderMeshDots(Mesh *ms, uint8 *vram)
 {
 	ScreenPoint *src = scrPoints;
@@ -355,29 +380,11 @@ static void renderMeshDots(Mesh *ms, uint8 *vram)
 			const int sx = src->x;
 			const int sy = src->y;
 
-            const int xp = sx >> SCR_BITS;
-            const int yp = sy >> SCR_BITS;
-
-			uint8 *dst = vram + VRAM_PIXEL_OFFSET((xp>>UNCHAINED_BITS),yp);
 			#ifndef ANTIALIASING
+				uint8 *dst = vram + VRAM_PIXEL_OFFSET(sx >> (SCR_BITS - UNCHAINED_BITS),sy >> SCR_BITS);
 				*dst = color;
 			#else
-				const int fracX1 = (sx & AND_BITS(SCR_BITS + UNCHAINED_BITS)) >> (SCR_BITS + UNCHAINED_BITS - SHADE_BITS);
-				const int fracY1 = (sy & AND_BITS(SCR_BITS + UNCHAINED_BITS)) >> (SCR_BITS + UNCHAINED_BITS - SHADE_BITS);
-				const int fracX0 = SHADE_AND - fracX1;
-				const int fracY0 = SHADE_AND - fracY1;
-
-				*dst = colorBase + ((fracX0 * fracY0) >> SHADE_BITS);
-				if (xp < SCR_W - 1) {
-					*(dst+1) = colorBase + ((fracX1 * fracY0) >> SHADE_BITS);
-				}
-				if (yp < SCR_H - 1) {
-					dst += SCR_LINE_BYTES;
-					*dst = colorBase + ((fracX0 * fracY1) >> SHADE_BITS);
-					if (xp < SCR_W - 1) {
-						*(dst + 1) = colorBase + ((fracX1 * fracY1) >> SHADE_BITS);
-					}
-				}
+				renderAntialiasedDot(sx, sy, colorBase, vram);
 			#endif
 		}
 		++src;

@@ -82,7 +82,7 @@ static int playerBulletTime = 0;
 static Vec3 centeredViewPos;
 static int viewZoomSpeed = 4;
 
-static bool isInGame = true;
+static bool isInGame = false;
 static bool gameQuit = false;
 
 

@@ -23,6 +23,13 @@ static char* menuOptions[] = { "Start", "Quit" };
 
 static int menuSelect = 0;
 
+
+#define NUM_STARS 256
+#define STAR_RANGE_X 512
+#define STAR_RANGE_Y 512
+#define STAR_NEAR 32
+#define STAR_FAR 2048
+
 enum {
 	OBJ_UFO, OBJ_UFO2,
 	OBJ_CUBESTAR, OBJ_ROMBUS_RING, 
@@ -44,6 +51,15 @@ static int8 *objMeshData[NUM_MESHES] =	{ 	objUfoData, objUfo2Data, objCubeStarDa
 static Mesh *objMesh[NUM_MESHES];
 
 static bool cameFromGame = true;	// what a hack I am bored
+
+
+typedef struct Star
+{
+	Vec3 pos, vel;
+} Star;
+
+static Star stars[NUM_STARS];
+
 
 static void inputMenu()
 {
@@ -79,7 +95,27 @@ static void inputMenu()
 	escapePressed = buttonsHeld.escape;
 }
 
-static void updateMenu(Screen *screen, int t)
+static void updateStars(Screen *screen, int t)
+{
+	for (int i=0; i<NUM_STARS; ++i) {
+		Vec3 *pos = &stars[i].pos;
+		Vec3 *vel = &stars[i].vel;
+
+		*pos += *vel;
+
+		if (pos->z < STAR_NEAR) pos->z = STAR_FAR;
+		if (pos->z > STAR_FAR) pos->z = STAR_NEAR;
+
+		int sx = (pos->x << (PROJ_BITS + SCR_BITS)) / pos->z + (SCR_W << SCR_BITS) / 2;
+		int sy = (SCR_H << SCR_BITS) / 2 - (pos->y << (PROJ_BITS + SCR_BITS)) / pos->z;
+
+		if (sx >= 0 && sx < ((SCR_W-1) << SCR_BITS) && sy >= 0 && sy < ((SCR_H-1) << SCR_BITS)) {
+			renderAntialiasedDot(sx,sy,((i & 1)<<6),(uint8*)screen->data);
+		}
+	}
+}
+
+static void update3D(Screen *screen, int t)
 {
 	Mesh *ms = objMesh[OBJ_ROMBUS_RING];
 
@@ -93,11 +129,31 @@ static void updateMenu(Screen *screen, int t)
 	ms->pos.z = 4096;
 
 	renderMesh(ms, screen);
+}
 
+static void renderMenu()
+{
 	for (int i=0; i<2; ++i) {
 		uint8 colOffset = 0;
 		if (menuSelect!=i) colOffset = 16;
 		drawText(120 + i * 8, 144 + i * 24, menuOptions[i], true, colOffset);
+	}
+}
+
+static void updateMenu(Screen *screen, int t)
+{
+	updateStars(screen, t);
+
+	update3D(screen, t);
+
+	renderMenu();
+}
+
+static void initStars()
+{
+	for (int i=0; i<NUM_STARS; ++i) {
+		stars[i].pos = Vec3(getRand(-STAR_RANGE_X, STAR_RANGE_X), getRand(-STAR_RANGE_Y, STAR_RANGE_Y), getRand(STAR_NEAR, STAR_FAR));
+		stars[i].vel = Vec3(0,0,-12 + getRand(0, 8));
 	}
 }
 
@@ -107,7 +163,7 @@ void menuInit()
 		objMesh[i] = initMeshFromCPCdata(objMeshData[i]);
 	}
 
-	//runMusPlayTest();
+	initStars();
 }
 
 void menuRun(Screen *screen, int t)
