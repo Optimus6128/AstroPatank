@@ -34,9 +34,9 @@
 #define PLAYER_THING_BASE 0
 #define NUM_PLAYERS 1
 
-#define BULLET_TIME_MAX 64
+#define BULLET_TIME_MAX 48
 #define BULLET_THING_BASE (PLAYER_THING_BASE + NUM_PLAYERS)
-#define MAX_BULLETS 3
+#define MAX_BULLETS 5
 
 #define NARC_THING_BASE (BULLET_THING_BASE + MAX_BULLETS)
 #define MAX_NARCS 8
@@ -345,8 +345,8 @@ static void input3D(int dt)
 		Vec3 bVel;
 		Vec3 bRot;
 
-		bVel.x = -((64 << PPOS_BITS) * sinTab[playerAngle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
-		bVel.y = ((64 << PPOS_BITS) * sinTab[(playerAngle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+		bVel.x = -((80 << PPOS_BITS) * sinTab[playerAngle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+		bVel.y = ((80 << PPOS_BITS) * sinTab[(playerAngle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
 		bVel.z = 0;
 
 		bPos.x = pos->x + bVel.x;
@@ -446,6 +446,11 @@ static void renderObject(int i, Screen *screen)
 	ms->pos.x = (gt->pos.x >> PPOS_BITS) - centeredViewPos.x;
 	ms->pos.y = centeredViewPos.y - (gt->pos.y >> PPOS_BITS);
 	ms->pos.z = centeredViewPos.z - (gt->pos.z >> PPOS_BITS);
+
+	int edgeX = ((SCR_W/2 + TILE_SIZE / 2) * ms->pos.z) >> PROJ_BITS;
+	int edgeY = ((SCR_H/2 + TILE_SIZE / 2) * ms->pos.z) >> PROJ_BITS;
+	if (ms->pos.x < -edgeX || ms->pos.x > edgeX || 
+		ms->pos.y < -edgeY || ms->pos.y > edgeY) return;
 
 	ms->rot = gt->rot;
 
