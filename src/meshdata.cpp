@@ -878,7 +878,7 @@ int8 objLaserData[] =
 //4,3,2,1,0,
 4,4,5,6,7,
 //4,7,6,5,4,
-3,3
+1,1
 };
 
 int8 objLetterAData[] = 

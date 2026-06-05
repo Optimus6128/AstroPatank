@@ -77,11 +77,13 @@ fillScanlinesAsm_:
 			mov ecx,ebx
 			shr ecx,16		; BX=x0, CX=x1
 
+			; if (x1 < 0) skip;
+			test cx,cx
+			jle afterRenderScanline
+
 			; if (x0 < 0) x0 = 0;
 			test bx,bx
 			jns noNegX0
-				test cx,cx
-				jle afterRenderScanline
 				xor bx,bx
 			noNegX0:
 
