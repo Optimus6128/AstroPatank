@@ -49,6 +49,12 @@ static int8 *objMeshData[NUM_MESHES] =	{ 	objSpaceshipFullData, objRombusRingDat
 
 static Mesh *objMesh[NUM_MESHES];
 
+#define ASTRO_LETTERS_NUM 5
+#define PATANK_LETTERS_NUM 6
+
+static int titleAstroMeshIndex[ASTRO_LETTERS_NUM] = { OBJ_LETTER_A, OBJ_LETTER_S, OBJ_LETTER_T, OBJ_LETTER_R, OBJ_LETTER_O };
+static int titlePatankMeshIndex[PATANK_LETTERS_NUM] = { OBJ_LETTER_P, OBJ_LETTER_A, OBJ_LETTER_T, OBJ_LETTER_A, OBJ_LETTER_N, OBJ_LETTER_K };
+
 static bool cameFromGame = true;	// what a hack I am bored
 
 
@@ -118,7 +124,7 @@ static void updateStars(Screen *screen, int t)
 
 static void update3D(Screen *screen, int t)
 {
-	Mesh *ms = objMesh[OBJ_ROMBUS_RING];
+	/*Mesh *ms = objMesh[OBJ_ROMBUS_RING];
 
 	t >>= 1;
 	ms->rot.x = t;
@@ -129,7 +135,39 @@ static void update3D(Screen *screen, int t)
 	ms->pos.y = 512;
 	ms->pos.z = 4096;
 
-	renderMesh(ms, screen);
+	renderMesh(ms, screen);*/
+
+	for (int i=0; i<ASTRO_LETTERS_NUM; ++i) {
+		Mesh *ms = objMesh[titleAstroMeshIndex[i]];
+		int oof = 0;
+		if (i == ASTRO_LETTERS_NUM-1) oof = 64;
+
+		ms->pos.x = (i - ASTRO_LETTERS_NUM / 2) * (1024 + oof);
+		ms->pos.y = 1512;
+		ms->pos.z = 8192 - 1024;
+
+		/*if (i==ASTRO_LETTERS_NUM-1) {
+			ms->pos.y += 256;
+			ms->pos.x += 768;
+			ms->pos.z += 1280;
+			ms->rot.y = t;
+		}*/
+
+		renderMesh(ms, screen);
+	}
+
+	for (int i=0; i<PATANK_LETTERS_NUM; ++i) {
+		Mesh *ms = objMesh[titlePatankMeshIndex[i]];
+		int oof = 0;
+		if (i >= PATANK_LETTERS_NUM-2) oof = 192;
+
+		ms->pos.x = (i - PATANK_LETTERS_NUM / 2) * (1024 + oof) + 384;
+		ms->pos.y = 0;
+		ms->pos.z = 8192 - 1024;
+
+		renderMesh(ms, screen);
+	}
+
 }
 
 static void renderMenu()
