@@ -55,6 +55,9 @@ static Mesh *objMesh[NUM_MESHES];
 static int titleAstroMeshIndex[ASTRO_LETTERS_NUM] = { OBJ_LETTER_A, OBJ_LETTER_S, OBJ_LETTER_T, OBJ_LETTER_R, OBJ_LETTER_O };
 static int titlePatankMeshIndex[PATANK_LETTERS_NUM] = { OBJ_LETTER_P, OBJ_LETTER_A, OBJ_LETTER_T, OBJ_LETTER_A, OBJ_LETTER_N, OBJ_LETTER_K };
 
+static Vec3 titleAstroPos[ASTRO_LETTERS_NUM];
+static Vec3 titlePatankPos[PATANK_LETTERS_NUM];
+
 static bool cameFromGame = true;	// what a hack I am bored
 
 
@@ -139,31 +142,16 @@ static void update3D(Screen *screen, int t)
 
 	for (int i=0; i<ASTRO_LETTERS_NUM; ++i) {
 		Mesh *ms = objMesh[titleAstroMeshIndex[i]];
-		int oof = 0;
-		if (i == ASTRO_LETTERS_NUM-1) oof = 64;
 
-		ms->pos.x = (i - ASTRO_LETTERS_NUM / 2) * (1024 + oof);
-		ms->pos.y = 1512;
-		ms->pos.z = 8192 - 1024;
-
-		/*if (i==ASTRO_LETTERS_NUM-1) {
-			ms->pos.y += 256;
-			ms->pos.x += 768;
-			ms->pos.z += 1280;
-			ms->rot.y = t;
-		}*/
+		ms->pos = titleAstroPos[i];
 
 		renderMesh(ms, screen);
 	}
 
 	for (int i=0; i<PATANK_LETTERS_NUM; ++i) {
 		Mesh *ms = objMesh[titlePatankMeshIndex[i]];
-		int oof = 0;
-		if (i >= PATANK_LETTERS_NUM-2) oof = 192;
 
-		ms->pos.x = (i - PATANK_LETTERS_NUM / 2) * (1024 + oof) + 384;
-		ms->pos.y = 0;
-		ms->pos.z = 8192 - 1024;
+		ms->pos = titlePatankPos[i];
 
 		renderMesh(ms, screen);
 	}
@@ -188,6 +176,31 @@ static void updateMenu(Screen *screen, int t)
 	renderMenu();
 }
 
+static void initTitleLetters()
+{
+	for (int i=0; i<ASTRO_LETTERS_NUM; ++i) {
+		Vec3 *pos = &titleAstroPos[i];
+
+		int oof = 0;
+		if (i == ASTRO_LETTERS_NUM-1) oof = 64;
+
+		pos->x = (i - ASTRO_LETTERS_NUM / 2) * (1024 + oof) + 128 - 192;
+		pos->y = 1512;
+		pos->z = 8192 - 1024;
+	}
+
+	for (int i=0; i<PATANK_LETTERS_NUM; ++i) {
+		Vec3 *pos = &titlePatankPos[i];
+
+		int oof = 0;
+		if (i >= PATANK_LETTERS_NUM-2) oof = 192;
+
+		pos->x = (i - PATANK_LETTERS_NUM / 2) * (1024 + oof) + 384 - 192;
+		pos->y = 0;
+		pos->z = 8192 - 1024;
+	}
+}
+
 static void initStars()
 {
 	for (int i=0; i<NUM_STARS; ++i) {
@@ -203,6 +216,8 @@ void menuInit()
 	}
 
 	initStars();
+
+	initTitleLetters();
 }
 
 void menuRun(Screen *screen, int t)
