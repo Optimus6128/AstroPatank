@@ -52,11 +52,15 @@ static Mesh *objMesh[NUM_MESHES];
 #define ASTRO_LETTERS_NUM 5
 #define PATANK_LETTERS_NUM 6
 
+#define TITLE_INTERP_BITS 12
+
 static int titleAstroMeshIndex[ASTRO_LETTERS_NUM] = { OBJ_LETTER_A, OBJ_LETTER_S, OBJ_LETTER_T, OBJ_LETTER_R, OBJ_LETTER_O };
 static int titlePatankMeshIndex[PATANK_LETTERS_NUM] = { OBJ_LETTER_P, OBJ_LETTER_A, OBJ_LETTER_T, OBJ_LETTER_A, OBJ_LETTER_N, OBJ_LETTER_K };
 
 static Vec3 titleAstroPos[ASTRO_LETTERS_NUM];
 static Vec3 titlePatankPos[PATANK_LETTERS_NUM];
+//static Vec3 titleAstroRot[ASTRO_LETTERS_NUM];
+//static Vec3 titlePatankRot[PATANK_LETTERS_NUM];
 
 static bool cameFromGame = true;	// what a hack I am bored
 
@@ -125,8 +129,24 @@ static void updateStars(Screen *screen, int t)
 	}
 }
 
+static Vec3 interpolateVec(Vec3 &src, Vec3 &dst, int dt)
+{
+	Vec3 v;
+
+	if (dt > (1 << TITLE_INTERP_BITS)) dt = 1 << TITLE_INTERP_BITS;
+	int ddt = (1 << TITLE_INTERP_BITS) - dt;
+
+	v.x = (src.x * ddt + dst.x * dt) >> TITLE_INTERP_BITS;
+	v.y = (src.y * ddt + dst.y * dt) >> TITLE_INTERP_BITS;
+	v.z = (src.z * ddt + dst.z * dt) >> TITLE_INTERP_BITS;
+
+	return v;
+}
+
 static void update3D(Screen *screen, int t)
 {
+	static int tStart = t;
+
 	/*Mesh *ms = objMesh[OBJ_ROMBUS_RING];
 
 	t >>= 1;
@@ -140,20 +160,36 @@ static void update3D(Screen *screen, int t)
 
 	renderMesh(ms, screen);*/
 
+	Vec3 farPos = Vec3(0,0,32768);
+	Vec3 farRot = Vec3(4096, 8192, 6144);
+	Vec3 dstRot;
+
 	for (int i=0; i<ASTRO_LETTERS_NUM; ++i) {
 		Mesh *ms = objMesh[titleAstroMeshIndex[i]];
 
-		ms->pos = titleAstroPos[i];
+		int dt = t - tStart - i * 256;
+		if (dt > 0) {
+			dstRot.z = (192 * sinTab[(t + 64*i) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
 
-		renderMesh(ms, screen);
+			ms->pos = interpolateVec(farPos, titleAstroPos[i], dt);
+			ms->rot = interpolateVec(farRot, dstRot, dt);
+
+			renderMesh(ms, screen);
+		}
 	}
 
 	for (int i=0; i<PATANK_LETTERS_NUM; ++i) {
 		Mesh *ms = objMesh[titlePatankMeshIndex[i]];
 
-		ms->pos = titlePatankPos[i];
+		int dt = t - tStart - i * 256 - (1 << TITLE_INTERP_BITS);
+		if (dt > 0) {
+			dstRot.z = (224 * sinTab[(t + 96*i) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
 
-		renderMesh(ms, screen);
+			ms->pos = interpolateVec(farPos, titlePatankPos[i], dt);
+			ms->rot = interpolateVec(farRot, dstRot, dt);
+
+			renderMesh(ms, screen);
+		}
 	}
 
 }
