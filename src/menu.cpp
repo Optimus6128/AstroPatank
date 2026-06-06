@@ -31,8 +31,7 @@ static int menuSelect = 0;
 #define STAR_FAR 2048
 
 enum {
-	OBJ_UFO, OBJ_UFO2,
-	OBJ_CUBESTAR, OBJ_ROMBUS_RING, 
+	OBJ_SPACESHIP_FULL, OBJ_ROMBUS_RING, 
 	OBJ_LETTER_A,
 	OBJ_LETTER_S,
 	OBJ_LETTER_T,
@@ -44,7 +43,7 @@ enum {
 	NUM_MESHES
 };
 
-static int8 *objMeshData[NUM_MESHES] =	{ 	objUfoData, objUfo2Data, objCubeStarData, objRombusRingData, 
+static int8 *objMeshData[NUM_MESHES] =	{ 	objSpaceshipFullData, objRombusRingData, 
 											objLetterAData, objLetterSData, objLetterTData, objLetterRData, objLetterOData, objLetterPData, objLetterNData, objLetterKData
 										};
 

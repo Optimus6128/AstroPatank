@@ -81,18 +81,18 @@ static uint32 currParticleIndex = 0;
 
 
 enum {
-	OBJ_QUAD, OBJ_TRIPOD, OBJ_PYRAMID, OBJ_ROMBUS, OBJ_CUBE, 
-	OBJ_GLENZ, OBJ_UFO, OBJ_UFO2,
-	OBJ_DRUM, OBJ_CROSS,
+	OBJ_TRIPOD, 
+	OBJ_UFO, OBJ_UFO2,
+	OBJ_GLENZ, OBJ_DRUM, OBJ_CROSS,
 	OBJ_SPACESHIP,
 	OBJ_TORUS, OBJ_CUBESTAR,
-	OBJ_TEST3, OBJ_ROMBUS_RING, OBJ_TORUS2, OBJ_EIGHT_CUBES,
+	OBJ_ROMBUS_RING, OBJ_EIGHT_CUBES,
 	OBJ_LASER,
 	NUM_MESHES
 };
 
-static int8 *objMeshData[NUM_MESHES] =	{ 	objQuadData, objTripodData, objPyramidData, objRombusData, objCubeData, objGlenzData, objUfoData, objUfo2Data, objDrumData, objSquareCrossData, 
-											objSpaceship1Data, objTorusData, objCubeStarData, objTest3Data, objRombusRingData, objTorus2Data, objEightCubesData, objLaserData
+static int8 *objMeshData[NUM_MESHES] =	{ 	objTripodData, objUfoData, objUfo2Data, objGlenzData, objDrumData, objSquareCrossData, 
+											objSpaceship1Data, objTorusData, objCubeStarData, objRombusRingData, objEightCubesData, objLaserData
 										};
 
 static Mesh *objectMesh[NUM_MESHES];
