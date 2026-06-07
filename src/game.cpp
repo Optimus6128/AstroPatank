@@ -43,10 +43,10 @@
 #define MAX_LASERS 5
 
 #define NARC_THING_BASE (LASER_THING_BASE + MAX_LASERS)
-#define MAX_NARCS 8
+#define MAX_NARCS 12
 
 #define ENERGY_BONUS_THING_BASE (NARC_THING_BASE + MAX_NARCS)
-#define MAX_ENERGY_BONUS 2
+#define MAX_ENERGY_BONUS 3
 
 #define SHIELD_BONUS_THING_BASE (ENERGY_BONUS_THING_BASE + MAX_ENERGY_BONUS)
 #define MAX_SHIELD_BONUS 2
@@ -55,7 +55,7 @@
 #define MAX_WEAPON_BONUS 1
 
 #define GEM_BONUS_THING_BASE (WEAPON_BONUS_THING_BASE + MAX_WEAPON_BONUS)
-#define MAX_GEM_BONUS 4
+#define MAX_GEM_BONUS 8
 
 
 #define NUM_PARTICLES 256
@@ -968,8 +968,6 @@ void gameRun(Screen *screen, int t)
 	} else {
 		menuRun(screen, t);
 	}
-
-	updateSound();
 
 #ifdef SHOW_PALETTE
 	drawPalette((uint8*)screen->data);

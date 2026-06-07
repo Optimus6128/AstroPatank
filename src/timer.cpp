@@ -10,6 +10,8 @@
 #include "musplay.h"
 #include "types.h"
 
+#include "soundbpr.h"
+
 static uint32 startingFpsTime = 0;
 static int fpsFontsInit = 0;
 static int nFrames = 0;
@@ -64,6 +66,10 @@ static void (__interrupt __far *oldDosTimerInterrupt)();
 static void __interrupt __far newTimerInterrupt()
 {
 	timeValue++;
+
+	// Moved beeper updateSound call here from per frame, to make sound from beeper play the same even if fps is low (should have done with physics too but I would need to decouple them)
+	if (!(timeValue & 31))
+		updateSound();
 
 	nextOldTimer -= 10;
 	if(nextOldTimer <= 0) {
