@@ -47,11 +47,12 @@
 
 #define NUM_PARTICLES 256
 
-#define MAX_SHIELD 2
-#define MAX_ENERGY 8
+#define MAX_SHIELD 0
+#define MAX_ENERGY 1
 #define MAX_HIT_BLINK 64
 
 #define ENERGY_SCALER 2
+#define MAX_PLAYER_DIE_TIME 4096
 
 typedef struct PlayerHit
 {
@@ -62,6 +63,8 @@ typedef struct PlayerHit
 
 static int energy = MAX_ENERGY * ENERGY_SCALER;
 static int shield = MAX_SHIELD * ENERGY_SCALER;
+static bool dead = false;
+static int playerDieTime = 0;
 
 PlayerHit playerHit = { false, 0, 0 };
 
@@ -262,7 +265,7 @@ static void updateNarcs()
 			gt->rot.y += (((i & 7) + 1) << 3);
 			gt->rot.z += ((i & 15) << 2);
 
-			if (checkThingThingCollision(gt, gtPlayer)) {
+			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
 				damagePlayer(ENERGY_SCALER, MAX_HIT_BLINK);
 			}
 		}
@@ -271,10 +274,10 @@ static void updateNarcs()
 	if (playerLaserTime > 0) playerLaserTime--;
 }
 
-static void spawnParticleMiniExplosion(Vec3 &pos, int numParticles, uint8 color, uint8 life)
+static void spawnParticleMiniExplosion(Vec3 &pos, int numParticles, uint8 color, uint8 life, int velMul = 1)
 {
 	for (int n=0; n<numParticles; ++n) {
-		Vec3 vel = getVelocityFromAngle(getRand(0, SINTAB_SIZE-1), getRand(512,2048));
+		Vec3 vel = getVelocityFromAngle(getRand(0, SINTAB_SIZE-1), getRand(512,2048) * velMul);
 		spawnParticle(pos, vel, color, life);
 	}
 }
@@ -323,9 +326,22 @@ static void updateParticles()
 
 static void updatePlayerHit()
 {
-	GameThing *gt = &thing[PLAYER_THING_BASE];
-	uint8 *spaceshipCols = gt->mesh->polyColor;
+	GameThing *gtPlayer = &thing[PLAYER_THING_BASE];
 
+	if (playerDieTime >= 0) playerDieTime--;
+
+	if (energy==0) {
+		if (gtPlayer->alive) {
+			spawnParticleMiniExplosion(gtPlayer->pos, NUM_PARTICLES, 96, 80, 3);
+			playSound(SOUND_PLAYER_DEAD);
+			gtPlayer->alive = false;
+			dead = true;
+			playerDieTime = MAX_PLAYER_DIE_TIME;
+		}
+		return;
+	}
+
+	uint8 *spaceshipCols = gtPlayer->mesh->polyColor;
 	if (playerHit.justHit) {
 		if (shield == 0) {
 			energy -= playerHit.damage;
@@ -372,7 +388,6 @@ static void spawnLaser(Vec3 &pos, Vec3 &rot, Vec3 &vel)
 
 	currentLaser = (currentLaser + 1) % MAX_LASERS;
 
-	//playSound(SOUND_ENEMY_DEAD);
 	playSound(SOUND_FIRE);
 
 	//SOUND_GEM_PICKUP, 
@@ -452,11 +467,25 @@ static void initThings()
 
 static void input3D(int dt)
 {
+	static bool rMapPressed = false;
+
+	if (buttonsHeld.escape) {
+		setIsInGame(false);
+	}
+
+	if (buttonsHeld.map & !rMapPressed) {
+		mapIndex = (mapIndex + 1) % MAP_INDEX_SIZE;
+		centeredViewPos.z = mapZ[mapIndex];
+	}
+
+	rMapPressed = buttonsHeld.map;
+
+
 	GameThing *gt = &thing[PLAYER_THING_BASE];
+	if (!gt->alive) return;
+
 	Vec3 *pos = &gt->pos;
 	Vec3 *rot = &gt->rot;
-	
-	static bool rMapPressed = false;
 
 	int prevPlayerPosX = pos->x;
 	int prevPlayerPosY = pos->y;
@@ -528,10 +557,6 @@ static void input3D(int dt)
 		playerLaserTime = LASER_TIME_MAX;
 	}
 
-	if (buttonsHeld.escape) {
-		setIsInGame(false);
-	}
-
 	if (playerThrustX != 0) {
 		int tMov = (dt*playerMoveSpeed*playerThrustX) << (PPOS_BITS - THRUST_BITS);
 		int tMovX = (tMov * sinTab[playerAngle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
@@ -566,11 +591,6 @@ static void input3D(int dt)
 		playSound(SOUND_PLAYER_BOUNCE);
 	}
 
-	if (buttonsHeld.map & !rMapPressed) {
-		mapIndex = (mapIndex + 1) % MAP_INDEX_SIZE;
-		centeredViewPos.z = mapZ[mapIndex];
-	}
-
 	/*
 	int cposZ = centeredViewPos.z << PPOS_BITS;
 
@@ -586,8 +606,6 @@ static void input3D(int dt)
 	}
 	centeredViewPos.z = cposZ >> PPOS_BITS;
 	*/
-
-	rMapPressed = buttonsHeld.map;
 }
 
 static void setupPalette3D()
@@ -746,7 +764,7 @@ static void initSoundsBpr()
 
 	setupSound(8, 2048, 32768, SOUND_PLAYER_HIT);
 
-	setupSound(4, 1024, 32768, SOUND_ENEMY_HIT);
+	setupSound(64, 5500, 31500, SOUND_PLAYER_DEAD);
 	setupSound(16, 6144, 32768, SOUND_ENEMY_DEAD);
 	
 	setupSound(12, 6144, 23000, SOUND_PLAYER_BOUNCE);
