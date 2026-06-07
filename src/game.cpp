@@ -33,7 +33,7 @@
 
 #define PPOS_BITS 8
 
-#define NUM_THINGS 64
+#define NUM_THINGS 256
 
 #define PLAYER_THING_BASE 0
 #define NUM_PLAYERS 1
@@ -55,7 +55,7 @@
 #define MAX_WEAPON_BONUS 1
 
 #define RING_BONUS_THING_BASE (WEAPON_BONUS_THING_BASE + MAX_WEAPON_BONUS)
-#define MAX_RING_BONUS 8
+#define MAX_RING_BONUS 128
 
 
 #define ANTI_SPAWN_PLAYER 128
@@ -76,7 +76,7 @@
 
 #define ENERGY_SCALER 2
 
-#define MAX_RINGS_TO_FINISH 2
+#define MAX_RINGS_TO_FINISH 4
 
 #define ENEMY_KILL_SCORE 50
 #define RING_PICKUP_SCORE 100
@@ -101,6 +101,7 @@ static int lives = 3;
 
 static bool gameOver = false;
 static bool gateOpened = false;
+static bool youWarp = false;
 static bool youWin = false;
 
 PlayerHit playerHit = { false, 0, 0 };
@@ -425,12 +426,23 @@ static void updateParticles()
 
 static void updatePlayerHit()
 {
+	static int winZoom = 0;
+
 	GameThing *gtPlayer = &thing[PLAYER_THING_BASE];
 
-	if (checkPlayerGateCollision()) youWin = true;
+	if (checkPlayerGateCollision()) youWarp = true;
 
-	if (youWin) {
-		gtPlayer->alive = false; // just to dissapear and pause
+	if (youWarp) {
+		winZoom += 32;
+		if (mapIndex==MAP_INDEX_SIZE-1) winZoom += 96;
+		gtPlayer->pos.x = ((TILEMAP_WIDTH / 2) * TILE_SIZE + TILE_SIZE / 2) << PPOS_BITS;
+		gtPlayer->pos.y = ((TILEMAP_HEIGHT / 2) * TILE_SIZE + TILE_SIZE / 2) << PPOS_BITS;
+		gtPlayer->pos.z = winZoom << PPOS_BITS;
+		gtPlayer->rot.y += 64;
+		if (winZoom >= mapZ[mapIndex]) {
+			youWin = true;
+			gtPlayer->alive = false; // just to dissapear and pause
+		}
 		return;
 	}
 
@@ -705,7 +717,7 @@ static void input3D(int dt)
 		setIsInGame(false);
 	}
 
-	if (buttonsHeld.map & !rMapPressed) {
+	if (!youWarp && (buttonsHeld.map & !rMapPressed)) {
 		mapIndex = (mapIndex + 1) % MAP_INDEX_SIZE;
 
 		uint8 tileRenderType = TILE_RENDER_MESH;
@@ -719,7 +731,7 @@ static void input3D(int dt)
 
 
 	GameThing *gt = &thing[PLAYER_THING_BASE];
-	if (!gt->alive) return;
+	if (!gt->alive || youWarp) return;
 
 	Vec3 *pos = &gt->pos;
 	Vec3 *rot = &gt->rot;
@@ -1006,7 +1018,7 @@ static void updateUI(Screen *screen, int t)
 		drawText(32, 88, "YOU WIN!", 64 + (((sinTab[t & (SINTAB_SIZE - 1)] * 32) >> AMPLITUDE_BITS)), 2, vram);
 	}
 
-	if (!youWin && gateOpened) {
+	if (!youWarp && gateOpened) {
 		drawText(92, 172, "GATE OPEN", 94 + (((sinTab[(6*t) & (SINTAB_SIZE - 1)] * 3) >> AMPLITUDE_BITS)), 1, vram);
 	}
 }
