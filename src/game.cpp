@@ -43,7 +43,7 @@
 #define MAX_LASERS 5
 
 #define NARC_THING_BASE (LASER_THING_BASE + MAX_LASERS)
-#define MAX_NARCS 4
+#define MAX_NARCS 8
 
 #define ENERGY_BONUS_THING_BASE (NARC_THING_BASE + MAX_NARCS)
 #define MAX_ENERGY_BONUS 2
@@ -70,6 +70,10 @@
 #define ENERGY_SCALER 2
 #define MAX_PLAYER_DIE_TIME 4096
 
+#define MAX_GEMS_TO_FINISH 16
+
+#define ENEMY_KILL_SCORE 50
+#define GEM_PICKUP_SCORE 100
 
 typedef struct PlayerHit
 {
@@ -78,6 +82,10 @@ typedef struct PlayerHit
 	uint8 warmUp;
 } PlayerHit;
 
+static bool mustUpdateScore = true;
+static bool mustUpdateGems = true;
+static int score = 0;
+static int gems = 0;
 static int energy = MAX_ENERGY * ENERGY_SCALER;
 static int shield = MAX_SHIELD * ENERGY_SCALER;
 static bool dead = false;
@@ -289,6 +297,18 @@ static void updateNarcs()
 	}
 }
 
+static void incScore(int value)
+{
+	score += value;
+	mustUpdateScore = true;
+}
+
+static void incGems()
+{
+	gems++;
+	mustUpdateGems = true;
+}
+
 static void spawnParticleMiniExplosion(Vec3 &pos, int numParticles, uint8 color, uint8 life, int velMul = 1)
 {
 	for (int n=0; n<numParticles; ++n) {
@@ -304,6 +324,7 @@ static void laserAgainstEnemies(GameThing *gtLaser)
 		if (gt->alive && checkThingThingCollision(gt, gtLaser)) {
 			gt->alive = gtLaser->alive = false;
 			spawnParticleMiniExplosion(gt->pos, 32, 128, 48);
+			incScore(ENEMY_KILL_SCORE);
 			playSound(SOUND_ENEMY_DEAD);
 		}
 	}
@@ -437,6 +458,8 @@ static void updateItems()
 			gt->rot += rotVel;
 			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
 				gt->alive = false;
+				incScore(GEM_PICKUP_SCORE);
+				incGems();
 				playSound(SOUND_GEM_PICKUP);
 			};
 		}
@@ -567,6 +590,11 @@ static void input3D(int dt)
 
 	if (buttonsHeld.map & !rMapPressed) {
 		mapIndex = (mapIndex + 1) % MAP_INDEX_SIZE;
+
+		uint8 tileRenderType = TILE_RENDER_MESH;
+		if (mapIndex==MAP_INDEX_SIZE-1) tileRenderType = TILE_RENDER_QUADS;
+		setTileRenderType(tileRenderType);
+
 		centeredViewPos.z = mapZ[mapIndex];
 	}
 
@@ -826,10 +854,25 @@ static void drawBar(uint8 bx, uint8 by, uint8 colbase, int value, uint8 *vram)
 
 static void updateUI(Screen *screen)
 {
+	static char txtScore[16];
+	static char txtGems[10];
+
 	uint8 *vram = (uint8*)screen->data;
 
 	drawBar(1,1,9,energy, vram);
 	drawBar(1,2,10,shield, vram);
+
+	if (mustUpdateScore) {
+		sprintf(txtScore, "Score: %d\n", score);
+		mustUpdateScore = false;
+	}
+	drawText(8, SCR_H - 12, txtScore, false, 32, vram);
+
+	if (mustUpdateGems) {
+		sprintf(txtGems, "Gems: %d\n", gems);
+		mustUpdateGems = false;
+	}
+	drawText(SCR_W - 76, SCR_H - 12, txtGems, false, 48, vram);
 }
 
 static void clearScreen(Screen *screen)

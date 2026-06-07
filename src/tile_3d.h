@@ -5,6 +5,14 @@
 #include "game.h"
 #include "vector.h"
 
+enum {
+	TILE_RENDER_DOTS,
+	TILE_RENDER_LINES,
+	TILE_RENDER_QUADS,
+	TILE_RENDER_MESH,
+	TILE_RENDER_COUNT
+};
+
 #define TILE_SIZE_BITS 8
 #define TILE_SIZE (1 << TILE_SIZE_BITS)
 #define TILE_HEIGHT (TILE_SIZE * 1)
@@ -25,7 +33,7 @@
 void tilemap3dInit();
 void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen);
 
-void advTileRenderType(bool inc);
+void setTileRenderType(uint8 renderType);
 
 uint8* getTilemap3D();
 

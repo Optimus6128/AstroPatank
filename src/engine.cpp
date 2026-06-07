@@ -29,7 +29,7 @@ static char scrPolyVis[MAX_POLYS];
 
 // No need to care much for such small polys in this game about sorting (reduced all values too short)
 #define MAX_AVG_Z 8192
-#define Z_BUCKET_RANGE 64
+#define Z_BUCKET_RANGE 16
 #define Z_BUCKETS_NUM (MAX_AVG_Z / Z_BUCKET_RANGE)
 #define Z_BUCKET_MAX_POLYS 32
 

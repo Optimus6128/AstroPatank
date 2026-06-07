@@ -15,14 +15,6 @@
 
 #include "maps.h"
 
-enum {
-	TILE_RENDER_DOTS,
-	TILE_RENDER_LINES,
-	TILE_RENDER_QUADS,
-	TILE_RENDER_MESH,
-	TILE_RENDER_COUNT
-};
-
 typedef struct TilemapGridInfo
 {
 	int x0,x1,y0,y1;
@@ -34,7 +26,7 @@ typedef struct TilemapGridInfo
 static uint8 tilemap3d[TILEMAP_SIZE];
 static TilemapGridInfo tmapGridInfo;
 
-static int tileRenderType = TILE_RENDER_MESH;
+static uint8 tileRenderType = TILE_RENDER_MESH;
 
 static ScreenPoint2D tileScrPt[TILEMAP_POINTS_SIZE];
 
@@ -243,14 +235,10 @@ void tilemap3dInit()
 	buildTilemapMesh();
 }
 
-void advTileRenderType(bool inc)
+void setTileRenderType(uint8 renderType)
 {
-	if (inc) {
-		tileRenderType++;
-		if (tileRenderType >= TILE_RENDER_COUNT) tileRenderType = 0;
-	} else {
-		tileRenderType--;
-		if (tileRenderType < 0) tileRenderType = TILE_RENDER_COUNT - 1;
+	if (renderType < TILE_RENDER_COUNT) {
+		tileRenderType = renderType;
 	}
 }
 
@@ -494,7 +482,7 @@ static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 	}
 }
 
-static void renderTilemap3dLayerQuads(uint8 color, uint8 *tmap, uint8 *vram)
+static void renderTilemap3dLayerQuads(uint8 layer, uint8 *vram)
 {
 	int x0 = tmapGridInfo.x0;
 	int y0 = tmapGridInfo.y0;
@@ -503,10 +491,19 @@ static void renderTilemap3dLayerQuads(uint8 color, uint8 *tmap, uint8 *vram)
 
 	int step = tmapGridInfo.tileStep;
 	int ys = tmapGridInfo.ys0;
+
+	uint8 colStart = ((layer+1) * 16) / TILEMAP_LAYERS;
+	if (colStart > 15) colStart = 15;
+
+	uint8 *tmap = &tilemap3d[layer*TILEMAP_LAYER_SIZE + tmapGridInfo.y0 * TILEMAP_WIDTH];
 	for (int y=y0; y<y1; ++y) {
 		int xs = tmapGridInfo.xs0;
 		for (int x=x0; x<x1; ++x) {
-			if (tmap[x]) {
+			uint8 c = tmap[x];
+			if (c!=0) {
+				uint8 color = colStart;
+				if (layer>0) color += (c << 4);
+
 				ScreenPoint2D p0, p1;
 				p0.x = xs; p1.x = xs+step;
 				p0.y = ys; p1.y = ys+step;
@@ -587,7 +584,7 @@ void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen)
 		break;
 
 		case TILE_RENDER_QUADS:
-			renderTilemap3dLayerQuads(color,tmap,vram);
+			renderTilemap3dLayerQuads(layer,vram);
 		break;
 
 		case TILE_RENDER_MESH:
@@ -595,7 +592,3 @@ void renderTilemap3dLayer(Vec3 *pos, uint8 layer, Screen *screen)
 		break;
 	}
 }
-
-// P166
-// start   : 1008
-// zoom out: 100
