@@ -164,7 +164,7 @@ static int playerLaserTime = 0;
 
 static Vec3 centeredViewPos;
 
-static bool isInGame = true;
+static bool isInGame = false;
 static bool gameQuit = false;
 
 
