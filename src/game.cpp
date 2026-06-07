@@ -40,10 +40,10 @@
 
 #define LASER_TIME_MAX 24
 #define LASER_THING_BASE (PLAYER_THING_BASE + NUM_PLAYERS)
-#define MAX_LASERS 5
+#define MAX_LASERS 7
 
 #define NARC_THING_BASE (LASER_THING_BASE + MAX_LASERS)
-#define MAX_NARCS 12
+#define MAX_NARCS 8
 
 #define ENERGY_BONUS_THING_BASE (NARC_THING_BASE + MAX_NARCS)
 #define MAX_ENERGY_BONUS 3
@@ -55,8 +55,15 @@
 #define MAX_WEAPON_BONUS 1
 
 #define RING_BONUS_THING_BASE (WEAPON_BONUS_THING_BASE + MAX_WEAPON_BONUS)
-#define MAX_RING_BONUS 8
+#define MAX_RING_BONUS 4
 
+
+
+#define ANTI_SPAWN_NARC 256
+#define ANTI_SPAWN_ENERGY 1024
+#define ANTI_SPAWN_RING 512
+#define ANTI_SPAWN_WEAPON 1024
+#define SPAWN_FULL 512
 
 #define NUM_PARTICLES 256
 
@@ -68,7 +75,6 @@
 #define MAX_HIT_BLINK 64
 
 #define ENERGY_SCALER 2
-#define MAX_PLAYER_DIE_TIME 4096
 
 #define MAX_RINGS_TO_FINISH 16
 
@@ -88,15 +94,13 @@ static int score = 0;
 static int rings = 0;
 static int energy = MAX_ENERGY * ENERGY_SCALER;
 static int shield = MAX_SHIELD * ENERGY_SCALER;
-static bool dead = false;
-static int playerDieTime = 0;
 
 PlayerHit playerHit = { false, 0, 0 };
 
 static int mapZ[] = { GROUND_Z, MID_Z, FAR_Z, MAP_OUT_Z };
 static uint8 mapIndex = 1;
 
-#define SPAWN_FULL 128
+
 
 typedef struct GameThing
 {
@@ -188,6 +192,12 @@ void setIsInGame(bool inGame)
 	switchGameMusic();
 
 	playerLaserTime = LASER_TIME_MAX;
+}
+
+static int getRandomAntiSpawn(int antiSpawnBase)
+{
+	int antiSpawnRange = antiSpawnBase >> 2;
+	return -antiSpawnBase + getRand(-antiSpawnRange, antiSpawnRange);
 }
 
 static void spawnParticle(Vec3 &pos, Vec3 &vel, uint8 color, uint8 life)
@@ -319,12 +329,40 @@ static void spawnParticleMiniExplosion(Vec3 &pos, int numParticles, uint8 color,
 	}
 }
 
+static void setRandomThingVelocity(GameThing *gt)
+{
+	int angle = getRand(0, SINTAB_SIZE-1);
+
+	gt->vel = getVelocityFromAngle(angle, 16 << PPOS_BITS);
+}
+
+static void setRandomThingPosition(GameThing *gt, uint8 layer)
+{
+	int tx, ty;
+	if (layer < TILEMAP_LAYERS-1) {
+		uint8* tmap = &getTilemap3D()[(layer + 1) * TILEMAP_LAYER_SIZE];
+
+		do {
+			tx = getRand(1,TILEMAP_WIDTH-2);
+			ty = getRand(1,TILEMAP_HEIGHT-2);
+		} while(tmap[ty*TILEMAP_WIDTH+tx]);
+	} else {
+		tx = getRand(1,TILEMAP_WIDTH-2);
+		ty = getRand(1,TILEMAP_HEIGHT-2);
+	}
+
+	gt->pos.x = (tx * TILE_SIZE + TILE_SIZE / 2) << PPOS_BITS;
+	gt->pos.y = (ty * TILE_SIZE + TILE_SIZE / 2) << PPOS_BITS;
+	gt->pos.z = (layer * TILE_SIZE) << PPOS_BITS;
+}
+
 static void laserAgainstEnemies(GameThing *gtLaser)
 {
 	for (int i = 0; i < MAX_NARCS; ++i) {
 		GameThing *gt = &thing[NARC_THING_BASE + i];
 		if (gt->alive && checkThingThingCollision(gt, gtLaser)) {
 			gt->alive = gtLaser->alive = false;
+			gt->spawn = getRandomAntiSpawn(ANTI_SPAWN_NARC);
 			spawnParticleMiniExplosion(gt->pos, 32, 128, 48);
 			incScore(ENEMY_KILL_SCORE);
 			playSound(SOUND_ENEMY_DEAD);
@@ -366,15 +404,12 @@ static void updatePlayerHit()
 {
 	GameThing *gtPlayer = &thing[PLAYER_THING_BASE];
 
-	if (playerDieTime >= 0) playerDieTime--;
-
 	if (energy==0) {
 		if (gtPlayer->alive) {
 			spawnParticleMiniExplosion(gtPlayer->pos, NUM_PARTICLES, 96, 80, 3);
 			playSound(SOUND_PLAYER_DEAD);
 			gtPlayer->alive = false;
-			dead = true;
-			playerDieTime = MAX_PLAYER_DIE_TIME;
+			gtPlayer->spawn = -4096;
 		}
 		return;
 	}
@@ -422,6 +457,7 @@ static void updateItems()
 					energy += 2 * ENERGY_SCALER;
 					if (energy > MAX_ENERGY * ENERGY_SCALER) energy = MAX_ENERGY * ENERGY_SCALER;
 					gt->alive = false;
+					gt->spawn = getRandomAntiSpawn(ANTI_SPAWN_ENERGY);
 					playSound(SOUND_HEALTH_PICKUP);
 				}
 			};
@@ -437,6 +473,7 @@ static void updateItems()
 					shield += 4 * ENERGY_SCALER;
 					if (shield > MAX_SHIELD * ENERGY_SCALER) shield = MAX_SHIELD * ENERGY_SCALER;
 					gt->alive = false;
+					gt->spawn = getRandomAntiSpawn(ANTI_SPAWN_ENERGY);
 					playSound(SOUND_HEALTH_PICKUP);
 				}
 			};
@@ -449,6 +486,7 @@ static void updateItems()
 			gt->rot += rotVel;
 			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
 				gt->alive = false;
+				gt->spawn = getRandomAntiSpawn(ANTI_SPAWN_WEAPON);
 				playSound(SOUND_POWER_PICKUP);
 			};
 		}
@@ -460,6 +498,7 @@ static void updateItems()
 			gt->rot += rotVel;
 			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
 				gt->alive = false;
+				gt->spawn = getRandomAntiSpawn(ANTI_SPAWN_RING);
 				incScore(RING_PICKUP_SCORE);
 				incRings();
 				playSound(SOUND_RING_PICKUP);
@@ -468,8 +507,27 @@ static void updateItems()
 	}
 }
 
+static void updateSpawning()
+{
+	for (int i=0; i<NUM_THINGS; ++i) {
+		GameThing *gt = &thing[i];
+
+		if (gt->spawn < SPAWN_FULL) {
+			gt->spawn++;
+			if (gt->spawn == 0) {
+				setRandomThingPosition(gt, 0);
+			}
+			if (gt->spawn == SPAWN_FULL) {
+				gt->alive = true;
+			}
+		}
+	}
+}
+
+
 static void updateGameplay(int t, int dt)
 {
+	updateSpawning();
 	updateNarcs();
 	updateItems();
 	updateLasers();
@@ -489,33 +547,6 @@ static void spawnLaser(Vec3 &pos, Vec3 &rot, Vec3 &vel)
 	currentLaser = (currentLaser + 1) % MAX_LASERS;
 
 	playSound(SOUND_FIRE);
-}
-
-static void setRandomThingVelocity(GameThing *gt)
-{
-	int angle = getRand(0, SINTAB_SIZE-1);
-
-	gt->vel = getVelocityFromAngle(angle, 16 << PPOS_BITS);
-}
-
-static void setRandomThingPosition(GameThing *gt, uint8 layer)
-{
-	int tx, ty;
-	if (layer < TILEMAP_LAYERS-1) {
-		uint8* tmap = &getTilemap3D()[(layer + 1) * TILEMAP_LAYER_SIZE];
-
-		do {
-			tx = getRand(1,TILEMAP_WIDTH-2);
-			ty = getRand(1,TILEMAP_HEIGHT-2);
-		} while(tmap[ty*TILEMAP_WIDTH+tx]);
-	} else {
-		tx = getRand(1,TILEMAP_WIDTH-2);
-		ty = getRand(1,TILEMAP_HEIGHT-2);
-	}
-
-	gt->pos.x = (tx * TILE_SIZE + TILE_SIZE / 2) << PPOS_BITS;
-	gt->pos.y = (ty * TILE_SIZE + TILE_SIZE / 2) << PPOS_BITS;
-	gt->pos.z = (layer * TILE_SIZE) << PPOS_BITS;
 }
 
 static void initPlayerThing()
@@ -542,15 +573,11 @@ static void setRandomThingInMap(GameThing *gt, Mesh *mesh, uint8 layer, int spaw
 	gt->mesh = mesh;
 	gt->size = TILE_SIZE / 4;
 	gt->spawn = spawn;
-	gt->alive = true;
+	gt->alive = false;
 	setRandomThingPosition(gt, layer);
 	if (moving) setRandomThingVelocity(gt);
 }
 
-#define ANTI_SPAWN_NARC -512
-#define ANTI_SPAWN_ENERGY -1024
-#define ANTI_SPAWN_RING -256
-#define ANTI_SPAWN_WEAPON -4096
 
 static void initThings()
 {
@@ -567,23 +594,23 @@ static void initThings()
 	}
 
 	for (int i=0; i<MAX_NARCS; ++i) {
-		setRandomThingInMap(&thing[NARC_THING_BASE + i], objectMesh[OBJ_CUBESTAR], 0, ANTI_SPAWN_NARC, true);
+		setRandomThingInMap(&thing[NARC_THING_BASE + i], objectMesh[OBJ_CUBESTAR], 0, getRandomAntiSpawn(ANTI_SPAWN_NARC), true);
 	}
 
 	for (int i=0; i<MAX_ENERGY_BONUS; ++i) {
-		setRandomThingInMap(&thing[ENERGY_BONUS_THING_BASE + i], objectMesh[OBJ_CROSS], 0, ANTI_SPAWN_ENERGY, true);
+		setRandomThingInMap(&thing[ENERGY_BONUS_THING_BASE + i], objectMesh[OBJ_CROSS], 0, getRandomAntiSpawn(ANTI_SPAWN_ENERGY), true);
 	}
 
 	for (int i=0; i<MAX_SHIELD_BONUS; ++i) {
-		setRandomThingInMap(&thing[SHIELD_BONUS_THING_BASE + i], objectMesh[OBJ_DRUM], 0, ANTI_SPAWN_ENERGY, true);
+		setRandomThingInMap(&thing[SHIELD_BONUS_THING_BASE + i], objectMesh[OBJ_DRUM], 0, getRandomAntiSpawn(ANTI_SPAWN_ENERGY), true);
 	}
 
 	for (int i=0; i<MAX_WEAPON_BONUS; ++i) {
-		setRandomThingInMap(&thing[WEAPON_BONUS_THING_BASE + i], objectMesh[OBJ_GLENZ], 0, ANTI_SPAWN_WEAPON, true);
+		setRandomThingInMap(&thing[WEAPON_BONUS_THING_BASE + i], objectMesh[OBJ_GLENZ], 0, getRandomAntiSpawn(ANTI_SPAWN_WEAPON), true);
 	}
 
 	for (int i=0; i<MAX_RING_BONUS; ++i) {
-		setRandomThingInMap(&thing[RING_BONUS_THING_BASE + i], objectMesh[OBJ_ROMBUS_RING], 0, ANTI_SPAWN_RING, true);
+		setRandomThingInMap(&thing[RING_BONUS_THING_BASE + i], objectMesh[OBJ_ROMBUS_RING], 0, getRandomAntiSpawn(ANTI_SPAWN_RING), true);
 	}
 }
 
@@ -717,22 +744,6 @@ static void input3D(int dt)
 		if (shield==0) damagePlayer(ENERGY_SCALER/2, MAX_HIT_BLINK/2);
 		playSound(SOUND_PLAYER_BOUNCE);
 	}
-
-	/*
-	int cposZ = centeredViewPos.z << PPOS_BITS;
-
-	if (buttonsHeld.zoomIn) {
-		if (cposZ > (GROUND_Z << PPOS_BITS)) {
-			cposZ -= tZoom;
-		}
-	}
-	if (buttonsHeld.zoomOut) {
-		if (cposZ < (MAP_OUT_Z << PPOS_BITS)) {
-			cposZ += tZoom;
-		}
-	}
-	centeredViewPos.z = cposZ >> PPOS_BITS;
-	*/
 }
 
 static void setupPalette3D()
@@ -790,7 +801,7 @@ static void updateThingsLayerLists()
 	for (int i=0; i<NUM_THINGS; ++i) {
 		GameThing *gt = &thing[i];
 
-		if (!gt->alive) continue;
+		if (gt->spawn < 0 || (gt->spawn == SPAWN_FULL && !gt->alive)) continue;
 
 		int layerIndex = (gt->pos.z >> PPOS_BITS) / TILE_HEIGHT;
 		CLAMP(layerIndex, 0, TILEMAP_LAYERS);
@@ -964,8 +975,6 @@ void gameInit()
 		objectMesh[i]->gridScaleX = (objectMesh[i]->gridScaleX * gridScaleMulX) >> 8;
 		objectMesh[i]->gridScaleY = (objectMesh[i]->gridScaleY * gridScaleMulY) >> 8;
 		objectMesh[i]->gridScaleZ = (objectMesh[i]->gridScaleZ * gridScaleMulZ) >> 8;
-
-		//reversePolygonOrder(objectMesh[i]); // Why did this work on EGA but here we shouldn't be doing it?
 	}
 
 	centeredViewPos.z = mapZ[mapIndex];
