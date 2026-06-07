@@ -55,7 +55,7 @@
 #define MAX_WEAPON_BONUS 1
 
 #define RING_BONUS_THING_BASE (WEAPON_BONUS_THING_BASE + MAX_WEAPON_BONUS)
-#define MAX_RING_BONUS 4
+#define MAX_RING_BONUS 6
 
 
 #define ANTI_SPAWN_PLAYER 128
@@ -63,7 +63,7 @@
 #define ANTI_SPAWN_ENERGY 512
 #define ANTI_SPAWN_RING 256
 #define ANTI_SPAWN_WEAPON 1024
-#define SPAWN_FULL 128
+#define SPAWN_FULL 64
 
 #define NUM_PARTICLES 256
 
@@ -110,6 +110,7 @@ typedef struct GameThing
 	int size;
 	Mesh *mesh;
 	int spawn;
+	Vec3 spawnMeshScale;
 	bool alive;
 } GameThing;
 
@@ -518,12 +519,24 @@ static void updateSpawning()
 	for (int i=0; i<NUM_THINGS; ++i) {
 		GameThing *gt = &thing[i];
 
-		if (gt->spawn < SPAWN_FULL) {
-			gt->spawn++;
-			if (gt->spawn == 0) {
-				setRandomThingPosition(gt, 0);
+		int spawnVal = gt->spawn;
+		if (spawnVal < SPAWN_FULL) {
+			gt->spawn = ++spawnVal;
+			if (spawnVal >= 0 && spawnVal < SPAWN_FULL) {
+				if (spawnVal == 0) {
+					setRandomThingPosition(gt, 0);
+				}
+				int gridScaleX = (gt->mesh->gridScaleX * spawnVal) / SPAWN_FULL;
+				int gridScaleY = (gt->mesh->gridScaleY * spawnVal) / SPAWN_FULL;
+				int gridScaleZ = (gt->mesh->gridScaleZ * spawnVal) / SPAWN_FULL;
+				if (gridScaleX<=0) gridScaleX = 1;
+				if (gridScaleY<=0) gridScaleY = 1;
+				if (gridScaleZ<=0) gridScaleZ = 1;
+				gt->spawnMeshScale.x = gridScaleX;
+				gt->spawnMeshScale.y = gridScaleY;
+				gt->spawnMeshScale.z = gridScaleZ;
 			}
-			if (gt->spawn == SPAWN_FULL) {
+			if (spawnVal == SPAWN_FULL) {
 				gt->alive = true;
 				if (i==PLAYER_THING_BASE) {
 					if (--lives>0) {
@@ -541,6 +554,9 @@ static void updateSpawning()
 					}
 					mustUpdateLives = true;
 				}
+				gt->spawnMeshScale.x = gt->mesh->gridScaleX;
+				gt->spawnMeshScale.y = gt->mesh->gridScaleY;
+				gt->spawnMeshScale.z = gt->mesh->gridScaleZ;
 			}
 		}
 	}
@@ -633,6 +649,19 @@ static void initThings()
 
 	for (int i=0; i<MAX_RING_BONUS; ++i) {
 		setRandomThingInMap(&thing[RING_BONUS_THING_BASE + i], objectMesh[OBJ_ROMBUS_RING], 0, getRandomAntiSpawn(ANTI_SPAWN_RING), true);
+	}
+
+	for (int i=0; i<NUM_THINGS; i++) {
+		GameThing *gt = &thing[i];
+		if (gt->spawn == SPAWN_FULL) {
+			gt->spawnMeshScale.x = gt->mesh->gridScaleX;
+			gt->spawnMeshScale.y = gt->mesh->gridScaleY;
+			gt->spawnMeshScale.z = gt->mesh->gridScaleZ;
+		} else {
+			gt->spawnMeshScale.x = 1;
+			gt->spawnMeshScale.y = 1;
+			gt->spawnMeshScale.z = 1;
+		}
 	}
 }
 
@@ -812,7 +841,19 @@ static void renderObject(int i, Screen *screen)
 
 	ms->rot = gt->rot;
 
+	int backX = ms->gridScaleX;
+	int backY = ms->gridScaleY;
+	int backZ = ms->gridScaleZ;
+
+	ms->gridScaleX = gt->spawnMeshScale.x;
+	ms->gridScaleY = gt->spawnMeshScale.y;
+	ms->gridScaleZ = gt->spawnMeshScale.z;
+
 	renderMesh(ms, screen);
+
+	ms->gridScaleX = backX;
+	ms->gridScaleY = backY;
+	ms->gridScaleZ = backZ;
 }
 
 static void updateThingsLayerLists()
