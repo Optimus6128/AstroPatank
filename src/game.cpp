@@ -97,6 +97,8 @@ static int energy = MAX_ENERGY * ENERGY_SCALER;
 static int shield = MAX_SHIELD * ENERGY_SCALER;
 static int lives = 3;
 
+static bool gameOver = false;
+
 PlayerHit playerHit = { false, 0, 0 };
 
 static int mapZ[] = { GROUND_Z, MID_Z, FAR_Z, MAP_OUT_Z };
@@ -415,6 +417,7 @@ static void updatePlayerHit()
 				gtPlayer->spawn = -ANTI_SPAWN_PLAYER;
 			} else {
 				lives = 0;
+				gameOver = true;
 				mustUpdateLives = true;
 			}
 		}
@@ -932,7 +935,7 @@ static void drawBar(uint8 bx, uint8 by, uint8 colbase, int value, uint8 *vram)
 	}
 }
 
-static void updateUI(Screen *screen)
+static void updateUI(Screen *screen, int t)
 {
 	static char txtLives[10];
 	static char txtScore[16];
@@ -960,6 +963,10 @@ static void updateUI(Screen *screen)
 		mustUpdateRings = false;
 	}
 	drawText(SCR_W - 76, SCR_H - 12, txtRings, 48, 0, vram);
+
+	if (gameOver) {
+		drawText(16, 88, "GAME OVER", 32 + (((sinTab[t & (SINTAB_SIZE - 1)] * 32) >> AMPLITUDE_BITS)), 2, vram);
+	}
 }
 
 static void clearScreen(Screen *screen)
@@ -1073,7 +1080,7 @@ void gameRun(Screen *screen, int t)
 		input3D(t - t0);
 		updateGameplay(t, t - t0);
 		updateScene3D(screen, t);
-		updateUI(screen);
+		updateUI(screen, t);
 	} else {
 		menuRun(screen, t);
 	}
