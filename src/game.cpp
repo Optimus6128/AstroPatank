@@ -54,8 +54,8 @@
 #define WEAPON_BONUS_THING_BASE (SHIELD_BONUS_THING_BASE + MAX_SHIELD_BONUS)
 #define MAX_WEAPON_BONUS 1
 
-#define GEM_BONUS_THING_BASE (WEAPON_BONUS_THING_BASE + MAX_WEAPON_BONUS)
-#define MAX_GEM_BONUS 8
+#define RING_BONUS_THING_BASE (WEAPON_BONUS_THING_BASE + MAX_WEAPON_BONUS)
+#define MAX_RING_BONUS 8
 
 
 #define NUM_PARTICLES 256
@@ -70,10 +70,10 @@
 #define ENERGY_SCALER 2
 #define MAX_PLAYER_DIE_TIME 4096
 
-#define MAX_GEMS_TO_FINISH 16
+#define MAX_RINGS_TO_FINISH 16
 
 #define ENEMY_KILL_SCORE 50
-#define GEM_PICKUP_SCORE 100
+#define RING_PICKUP_SCORE 100
 
 typedef struct PlayerHit
 {
@@ -83,9 +83,9 @@ typedef struct PlayerHit
 } PlayerHit;
 
 static bool mustUpdateScore = true;
-static bool mustUpdateGems = true;
+static bool mustUpdateRings = true;
 static int score = 0;
-static int gems = 0;
+static int rings = 0;
 static int energy = MAX_ENERGY * ENERGY_SCALER;
 static int shield = MAX_SHIELD * ENERGY_SCALER;
 static bool dead = false;
@@ -96,12 +96,14 @@ PlayerHit playerHit = { false, 0, 0 };
 static int mapZ[] = { GROUND_Z, MID_Z, FAR_Z, MAP_OUT_Z };
 static uint8 mapIndex = 1;
 
+#define SPAWN_FULL 128
 
 typedef struct GameThing
 {
 	Vec3 pos, rot, vel;
 	int size;
 	Mesh *mesh;
+	int spawn;
 	bool alive;
 } GameThing;
 
@@ -303,10 +305,10 @@ static void incScore(int value)
 	mustUpdateScore = true;
 }
 
-static void incGems()
+static void incRings()
 {
-	gems++;
-	mustUpdateGems = true;
+	rings++;
+	mustUpdateRings = true;
 }
 
 static void spawnParticleMiniExplosion(Vec3 &pos, int numParticles, uint8 color, uint8 life, int velMul = 1)
@@ -452,15 +454,15 @@ static void updateItems()
 		}
 	}
 
-	for (int i=0; i<MAX_GEM_BONUS; ++i) {
-		GameThing *gt = &thing[GEM_BONUS_THING_BASE + i];
+	for (int i=0; i<MAX_RING_BONUS; ++i) {
+		GameThing *gt = &thing[RING_BONUS_THING_BASE + i];
 		if (gt->alive) {
 			gt->rot += rotVel;
 			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
 				gt->alive = false;
-				incScore(GEM_PICKUP_SCORE);
-				incGems();
-				playSound(SOUND_GEM_PICKUP);
+				incScore(RING_PICKUP_SCORE);
+				incRings();
+				playSound(SOUND_RING_PICKUP);
 			};
 		}
 	}
@@ -487,10 +489,6 @@ static void spawnLaser(Vec3 &pos, Vec3 &rot, Vec3 &vel)
 	currentLaser = (currentLaser + 1) % MAX_LASERS;
 
 	playSound(SOUND_FIRE);
-
-	//SOUND_GEM_PICKUP, 
-	//SOUND_HEALTH_PICKUP,
-	//SOUND_POWER_PICKUP, 
 }
 
 static void setRandomThingVelocity(GameThing *gt)
@@ -535,16 +533,24 @@ static void initPlayerThing()
 	gt->rot.x = SINTAB_SIZE >> 2;
 	gt->rot.y = 0;
 	gt->rot.z = 0;
+
+	gt->spawn = SPAWN_FULL;
 }
 
-static void setRandomThingInMap(GameThing *gt, Mesh *mesh, uint8 layer, bool moving)
+static void setRandomThingInMap(GameThing *gt, Mesh *mesh, uint8 layer, int spawn, bool moving)
 {
 	gt->mesh = mesh;
 	gt->size = TILE_SIZE / 4;
+	gt->spawn = spawn;
 	gt->alive = true;
 	setRandomThingPosition(gt, layer);
 	if (moving) setRandomThingVelocity(gt);
 }
+
+#define ANTI_SPAWN_NARC -512
+#define ANTI_SPAWN_ENERGY -1024
+#define ANTI_SPAWN_RING -256
+#define ANTI_SPAWN_WEAPON -4096
 
 static void initThings()
 {
@@ -557,26 +563,27 @@ static void initThings()
 		gt->mesh = objectMesh[OBJ_LASER];
 		gt->size = TILE_SIZE / 4;
 		gt->alive = false;
+		gt->spawn = SPAWN_FULL;
 	}
 
 	for (int i=0; i<MAX_NARCS; ++i) {
-		setRandomThingInMap(&thing[NARC_THING_BASE + i], objectMesh[OBJ_CUBESTAR], 0, true);
+		setRandomThingInMap(&thing[NARC_THING_BASE + i], objectMesh[OBJ_CUBESTAR], 0, ANTI_SPAWN_NARC, true);
 	}
 
 	for (int i=0; i<MAX_ENERGY_BONUS; ++i) {
-		setRandomThingInMap(&thing[ENERGY_BONUS_THING_BASE + i], objectMesh[OBJ_CROSS], 0, true);
+		setRandomThingInMap(&thing[ENERGY_BONUS_THING_BASE + i], objectMesh[OBJ_CROSS], 0, ANTI_SPAWN_ENERGY, true);
 	}
 
 	for (int i=0; i<MAX_SHIELD_BONUS; ++i) {
-		setRandomThingInMap(&thing[SHIELD_BONUS_THING_BASE + i], objectMesh[OBJ_DRUM], 0, true);
+		setRandomThingInMap(&thing[SHIELD_BONUS_THING_BASE + i], objectMesh[OBJ_DRUM], 0, ANTI_SPAWN_ENERGY, true);
 	}
 
 	for (int i=0; i<MAX_WEAPON_BONUS; ++i) {
-		setRandomThingInMap(&thing[WEAPON_BONUS_THING_BASE + i], objectMesh[OBJ_GLENZ], 0, true);
+		setRandomThingInMap(&thing[WEAPON_BONUS_THING_BASE + i], objectMesh[OBJ_GLENZ], 0, ANTI_SPAWN_WEAPON, true);
 	}
 
-	for (int i=0; i<MAX_GEM_BONUS; ++i) {
-		setRandomThingInMap(&thing[GEM_BONUS_THING_BASE + i], objectMesh[OBJ_ROMBUS_RING], 0, true);
+	for (int i=0; i<MAX_RING_BONUS; ++i) {
+		setRandomThingInMap(&thing[RING_BONUS_THING_BASE + i], objectMesh[OBJ_ROMBUS_RING], 0, ANTI_SPAWN_RING, true);
 	}
 }
 
@@ -855,7 +862,7 @@ static void drawBar(uint8 bx, uint8 by, uint8 colbase, int value, uint8 *vram)
 static void updateUI(Screen *screen)
 {
 	static char txtScore[16];
-	static char txtGems[10];
+	static char txtRings[10];
 
 	uint8 *vram = (uint8*)screen->data;
 
@@ -868,11 +875,11 @@ static void updateUI(Screen *screen)
 	}
 	drawText(8, SCR_H - 12, txtScore, false, 32, vram);
 
-	if (mustUpdateGems) {
-		sprintf(txtGems, "Gems: %d\n", gems);
-		mustUpdateGems = false;
+	if (mustUpdateRings) {
+		sprintf(txtRings, "Rings: %d\n", rings);
+		mustUpdateRings = false;
 	}
-	drawText(SCR_W - 76, SCR_H - 12, txtGems, false, 48, vram);
+	drawText(SCR_W - 76, SCR_H - 12, txtRings, false, 48, vram);
 }
 
 static void clearScreen(Screen *screen)
@@ -904,7 +911,7 @@ static void initSoundsBpr()
 	
 	setupSound(12, 6144, 23000, SOUND_PLAYER_BOUNCE);
 
-	setupSound(8, 768, 3144, SOUND_GEM_PICKUP);
+	setupSound(8, 768, 3144, SOUND_RING_PICKUP);
 	setupSound(12, 1512, 6144, SOUND_HEALTH_PICKUP);
 	setupSound(40, 1280, 16384, SOUND_POWER_PICKUP);
 	setupSound(6, 6144, 28000, SOUND_LASER_PUFF);
