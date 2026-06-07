@@ -33,26 +33,40 @@
 
 #define PPOS_BITS 8
 
-#define NUM_THINGS 64
+#define NUM_THINGS 32
 
 #define PLAYER_THING_BASE 0
 #define NUM_PLAYERS 1
 
-#define LASER_TIME_MAX 48
+#define LASER_TIME_MAX 32
 #define LASER_THING_BASE (PLAYER_THING_BASE + NUM_PLAYERS)
 #define MAX_LASERS 5
 
 #define NARC_THING_BASE (LASER_THING_BASE + MAX_LASERS)
-#define MAX_NARCS 16
+#define MAX_NARCS 4
+
+#define ENERGY_BONUS_THING_BASE (NARC_THING_BASE + MAX_NARCS)
+#define MAX_ENERGY_BONUS 2
+
+#define SHIELD_BONUS_THING_BASE (ENERGY_BONUS_THING_BASE + MAX_ENERGY_BONUS)
+#define MAX_SHIELD_BONUS 2
+
+#define WEAPON_BONUS_THING_BASE (SHIELD_BONUS_THING_BASE + MAX_SHIELD_BONUS)
+#define MAX_WEAPON_BONUS 1
+
 
 #define NUM_PARTICLES 256
 
-#define MAX_SHIELD 0
-#define MAX_ENERGY 1
+#define THRUST_BITS 6
+#define THRUST_MAX (1 << THRUST_BITS)
+
+#define MAX_SHIELD 8
+#define MAX_ENERGY 8
 #define MAX_HIT_BLINK 64
 
 #define ENERGY_SCALER 2
 #define MAX_PLAYER_DIE_TIME 4096
+
 
 typedef struct PlayerHit
 {
@@ -270,8 +284,6 @@ static void updateNarcs()
 			}
 		}
 	}
-
-	if (playerLaserTime > 0) playerLaserTime--;
 }
 
 static void spawnParticleMiniExplosion(Vec3 &pos, int numParticles, uint8 color, uint8 life, int velMul = 1)
@@ -369,9 +381,44 @@ static void updatePlayerHit()
 	}
 }
 
+static void updateItems()
+{
+	static Vec3 rotVel = Vec3(10, 12, 8);
+
+	GameThing *gtPlayer = &thing[PLAYER_THING_BASE];
+
+	for (int i=0; i<MAX_ENERGY_BONUS; ++i) {
+		GameThing *gt = &thing[ENERGY_BONUS_THING_BASE + i];
+		if (gt->alive) {
+			gt->rot += rotVel;
+			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
+			};
+		}
+	}
+
+	for (int i=0; i<MAX_SHIELD_BONUS; ++i) {
+		GameThing *gt = &thing[SHIELD_BONUS_THING_BASE + i];
+		if (gt->alive) {
+			gt->rot += rotVel;
+			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
+			};
+		}
+	}
+
+	for (int i=0; i<MAX_WEAPON_BONUS; ++i) {
+		GameThing *gt = &thing[WEAPON_BONUS_THING_BASE + i];
+		if (gt->alive) {
+			gt->rot += rotVel;
+			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
+			};
+		}
+	}
+}
+
 static void updateGameplay(int t, int dt)
 {
 	updateNarcs();
+	updateItems();
 	updateLasers();
 	updateParticles();
 	updatePlayerHit();
@@ -439,6 +486,15 @@ static void initPlayerThing()
 	gt->rot.z = 0;
 }
 
+static void setRandomThingInMap(GameThing *gt, Mesh *mesh, uint8 layer, bool moving)
+{
+	gt->mesh = mesh;
+	gt->size = TILE_SIZE / 4;
+	gt->alive = true;
+	setRandomThingPosition(gt, layer);
+	if (moving) setRandomThingVelocity(gt);
+}
+
 static void initThings()
 {
 	memset(thing, 0, sizeof(GameThing) * NUM_THINGS);
@@ -453,17 +509,21 @@ static void initThings()
 	}
 
 	for (int i=0; i<MAX_NARCS; ++i) {
-		GameThing *gt = &thing[NARC_THING_BASE + i];
-		gt->mesh = objectMesh[OBJ_CUBESTAR];
-		gt->size = TILE_SIZE / 4;
-		gt->alive = true;
-		setRandomThingPosition(gt, 0);
-		setRandomThingVelocity(gt);
+		setRandomThingInMap(&thing[NARC_THING_BASE + i], objectMesh[OBJ_CUBESTAR], 0, true);
+	}
+
+	for (int i=0; i<MAX_ENERGY_BONUS; ++i) {
+		setRandomThingInMap(&thing[ENERGY_BONUS_THING_BASE + i], objectMesh[OBJ_CROSS], 0, true);
+	}
+
+	for (int i=0; i<MAX_SHIELD_BONUS; ++i) {
+		setRandomThingInMap(&thing[SHIELD_BONUS_THING_BASE + i], objectMesh[OBJ_DRUM], 0, true);
+	}
+
+	for (int i=0; i<MAX_WEAPON_BONUS; ++i) {
+		setRandomThingInMap(&thing[WEAPON_BONUS_THING_BASE + i], objectMesh[OBJ_GLENZ], 0, true);
 	}
 }
-
-#define THRUST_BITS 6
-#define THRUST_MAX (1 << THRUST_BITS)
 
 static void input3D(int dt)
 {
@@ -786,6 +846,11 @@ void gameInit()
 		if (i==OBJ_LASER) {
 			gridScaleMulX = 16;
 			gridScaleMulY = 16;
+			gridScaleMulZ = 32;
+		}
+		if (i==OBJ_DRUM) {
+			gridScaleMulX = 32;
+			gridScaleMulY = 32;
 			gridScaleMulZ = 32;
 		}
 
