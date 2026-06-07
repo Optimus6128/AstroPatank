@@ -38,7 +38,7 @@
 #define PLAYER_THING_BASE 0
 #define NUM_PLAYERS 1
 
-#define LASER_TIME_MAX 24
+#define LASER_TIME_MAX 32
 #define LASER_THING_BASE (PLAYER_THING_BASE + NUM_PLAYERS)
 #define MAX_LASERS 7
 
@@ -55,13 +55,13 @@
 #define MAX_WEAPON_BONUS 1
 
 #define RING_BONUS_THING_BASE (WEAPON_BONUS_THING_BASE + MAX_WEAPON_BONUS)
-#define MAX_RING_BONUS 16
+#define MAX_RING_BONUS 8
 
 
 #define ANTI_SPAWN_PLAYER 128
 #define ANTI_SPAWN_NARC 256
 #define ANTI_SPAWN_ENERGY 512
-#define ANTI_SPAWN_RING 256
+#define ANTI_SPAWN_RING 128
 #define ANTI_SPAWN_WEAPON 1024
 #define SPAWN_FULL 64
 
@@ -91,10 +91,12 @@ typedef struct PlayerHit
 static bool mustUpdateScore = true;
 static bool mustUpdateRings = true;
 static bool mustUpdateLives = true;
+static bool mustUpdatePower = true;
 static int score = 0;
 static int rings = 0;
 static int energy = MAX_ENERGY * ENERGY_SCALER;
 static int shield = MAX_SHIELD * ENERGY_SCALER;
+static int power = 0;
 static int lives = 3;
 
 static bool gameOver = false;
@@ -518,7 +520,10 @@ static void updateItems()
 		GameThing *gt = &thing[WEAPON_BONUS_THING_BASE + i];
 		if (gt->alive) {
 			gt->rot += rotVel;
-			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
+			if (power < 3 && gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
+				power++;
+				mustUpdatePower = true;
+
 				gt->alive = false;
 				gt->spawn = getRandomAntiSpawn(ANTI_SPAWN_WEAPON);
 				playSound(SOUND_POWER_PICKUP);
@@ -785,7 +790,7 @@ static void input3D(int dt)
 
 		spawnLaser(bPos, bRot, bVel);
 
-		playerLaserTime = LASER_TIME_MAX;
+		playerLaserTime = LASER_TIME_MAX - 4 * power;
 	}
 
 	if (playerThrustX != 0) {
@@ -964,6 +969,7 @@ static void updateUI(Screen *screen, int t)
 	static char txtLives[10];
 	static char txtScore[16];
 	static char txtRings[10];
+	static char txtPower[10];
 
 	uint8 *vram = (uint8*)screen->data;
 
@@ -975,6 +981,12 @@ static void updateUI(Screen *screen, int t)
 		mustUpdateLives = false;
 	}
 	drawText(SCR_W - 76, 8, txtLives, 64, 0, vram);
+
+	if (mustUpdatePower) {
+		sprintf(txtPower, "Power: %d\n", power);
+		mustUpdatePower = false;
+	}
+	drawText(SCR_W - 76, 24, txtPower, 112, 0, vram);
 
 	if (mustUpdateScore) {
 		sprintf(txtScore, "Score: %d\n", score);
