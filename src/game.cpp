@@ -70,8 +70,8 @@
 #define THRUST_BITS 6
 #define THRUST_MAX (1 << THRUST_BITS)
 
-#define MAX_SHIELD 8
-#define MAX_ENERGY 8
+#define MAX_SHIELD 1
+#define MAX_ENERGY 1
 #define MAX_HIT_BLINK 64
 
 #define ENERGY_SCALER 2
@@ -947,19 +947,19 @@ static void updateUI(Screen *screen)
 		sprintf(txtLives, "Lives: %d\n", lives);
 		mustUpdateLives = false;
 	}
-	drawText(SCR_W - 76, 8, txtLives, false, 64, vram);
+	drawText(SCR_W - 76, 8, txtLives, 64, 0, vram);
 
 	if (mustUpdateScore) {
 		sprintf(txtScore, "Score: %d\n", score);
 		mustUpdateScore = false;
 	}
-	drawText(8, SCR_H - 12, txtScore, false, 32, vram);
+	drawText(8, SCR_H - 12, txtScore, 32, 0, vram);
 
 	if (mustUpdateRings) {
 		sprintf(txtRings, "Rings: %d\n", rings);
 		mustUpdateRings = false;
 	}
-	drawText(SCR_W - 76, SCR_H - 12, txtRings, false, 48, vram);
+	drawText(SCR_W - 76, SCR_H - 12, txtRings, 48, 0, vram);
 }
 
 static void clearScreen(Screen *screen)

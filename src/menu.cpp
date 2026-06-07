@@ -210,7 +210,7 @@ static void renderMenu(Screen *screen)
 	for (int i=0; i<2; ++i) {
 		uint8 colOffset = 0;
 		if (menuSelect!=i) colOffset = 16;
-		drawText(120 + i * 8, 144 + i * 24, menuOptions[i], true, colOffset, vram);
+		drawText(120 + i * 8, 144 + i * 24, menuOptions[i], colOffset, 1, vram);
 	}
 }
 
