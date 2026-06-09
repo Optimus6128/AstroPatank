@@ -179,7 +179,7 @@ void drawFps(Video *video)
 	nFrames++;
 	if (dt >= secsTime)
 	{
-		fps = (nFrames * 1000) / dt;
+		fps = (nFrames * secsTime) / dt;
 		startingFpsTime = getTime();
 		nFrames = 0;
 	}

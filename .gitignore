@@ -1,4 +1,6 @@
 demo.exe
+demoj.exe
+*.o
 *.obj
 *.err
 *.sym
