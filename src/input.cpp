@@ -171,7 +171,7 @@ void initKeyboard()
 
 		_go32_dpmi_set_protected_mode_interrupt_vector(KEYBOARD_INTERRUPT, &newKeyboardHandler);
 	#else
-		oldKeyboardHandler = _dos_getvect(KEYBOARD_INTERRUPT);
+		oldKeyboardInterrupt = _dos_getvect(KEYBOARD_INTERRUPT);
 		_dos_setvect(KEYBOARD_INTERRUPT, newKeyboardInterrupt);
 	#endif
 
@@ -187,7 +187,7 @@ void deinitKeyboard()
 	#ifdef __DJGPP__
 		_go32_dpmi_set_protected_mode_interrupt_vector(KEYBOARD_INTERRUPT, &oldKeyboardHandler);
 	#else
-		_dos_setvect(KEYBOARD_INTERRUPT, oldKeyboardHandler);
+		_dos_setvect(KEYBOARD_INTERRUPT, oldKeyboardInterrupt);
 	#endif
 
 	_enable();

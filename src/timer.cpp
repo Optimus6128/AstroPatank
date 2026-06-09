@@ -158,7 +158,8 @@ static void timerInterruptEnd()
 uint32 getTime()
 {
 	#ifndef SOUND_ON
-		return (uint32)timeValue;
+		//return (uint32)timeValue;
+		return (uint32)(*my_clock * (1000.0f / 18.2f));
 	#else
 		#ifdef YET_ANOTHER_HACK
 			return (uint32)(timeValue / OOF);
