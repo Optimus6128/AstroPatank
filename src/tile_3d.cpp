@@ -41,7 +41,7 @@ static ScreenPoint2D *scrPlist[MAX_BLOCKS_PER_MAP * 24];		// good theoritical ma
 static ScreenPoint2D **spNext = scrPlist;
 
 
-#define FILL_SHAPES_ASM
+//#define FILL_SHAPES_ASM
 
 extern "C" {
 	void drawRectangleAsm(ScreenPoint2D *p0, ScreenPoint2D *p1, uint8 color, uint8 *vram);

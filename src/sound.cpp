@@ -4,7 +4,8 @@
 #include <conio.h>
 #include <dos.h>
 #include <stdlib.h>
-#include <i86.h>
+
+//#include <i86.h>
 
 #ifdef USE_OPL_FOR_SOUND_FX
 	static uint8 oplDetected = 0;

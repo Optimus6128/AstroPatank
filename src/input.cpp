@@ -1,8 +1,12 @@
 #include <dos.h>
-//#include <i86.h>
 #include <stdio.h>
 #include <conio.h>
 #include <string.h>
+
+#ifdef __DJGPP__
+	#include <go32.h>
+	#include <dpmi.h>
+#endif
 
 #include "input.h"
 
@@ -17,8 +21,8 @@
 	static _go32_dpmi_seginfo oldKeyboardHandler;
 	static _go32_dpmi_seginfo newKeyboardHandler;
 #else
-	static void (INTERRUPT *oldKeyboardHandler)();
-	static void INTERRUPT newKeyboardHandler();
+	static void (INTERRUPT *oldKeyboardInterrupt)();
+	static void INTERRUPT newKeyboardInterrupt();
 #endif
 
 Buttons buttonsHeld;
@@ -26,39 +30,65 @@ Buttons buttonsHeld;
 
 static void clearKeyboardBuffer()
 {
-	_asm
-	{
-		// Safer?
-		mov ax,0c00h
-		int 21h
+	#ifdef __DJGPP__
+		union REGS regs;
 
-		// Hack
-		/*push ds
-		mov ax,0040h
-		mov ds,ax
-		mov ax,[ds:001ah]
-		mov [ds:001ch],ax
-		pop ds*/
-	}
+		regs.h.ah = 0x0c;
+		regs.h.al = 0x00;
+		int86(0x21, &regs, &regs);
+	#else
+		_asm
+		{
+			// Safer?
+			mov ax,0c00h
+			int 21h
+
+			// Hack
+			/*push ds
+			mov ax,0040h
+			mov ds,ax
+			mov ax,[ds:001ah]
+			mov [ds:001ch],ax
+			pop ds*/
+		}
+	#endif
 }
 
 static uint8 getKey()
 {
 	uint8 keypress = 0;
 
-	_asm
-	{
-		in al,60h
-		mov [keypress],al
+	#ifdef __DJGPP__
+		__asm__ __volatile__ (
+			"inb $0x60, %%al\n\t"
+			"movb %%al, %0\n\t"
 
-		// fix for XT keyboards?
-		in al,61h
-		mov ah,al
-		or al,80h
-		out 61h,al
-		mov al,ah
-		out 61h,al
-	}
+			// fix for XT keyboards?
+			"inb $0x61, %%al\n\t"
+			"movb %%al, %%ah\n\t"
+			"orb $0x80, %%al\n\t"
+			"outb %%al, $0x61\n\t"
+			"movb %%ah, %%al\n\t"
+			"outb %%al, $0x61"
+			: "=q" (keypress)
+			:
+			: "eax", "memory"
+		);
+	#else
+		_asm
+		{
+			in al,60h
+			mov [keypress],al
+
+			// fix for XT keyboards?
+			in al,61h
+			mov ah,al
+			or al,80h
+			out 61h,al
+			mov al,ah
+			out 61h,al
+		}
+	#endif
 
 	return keypress;
 }
@@ -118,7 +148,11 @@ static void keyCommands()
 	clearKeyboardBuffer();
 }
 
-static void INTERRUPT newKeyboardHandler()
+#ifdef __DJGPP__
+static void newKeyboardInterrupt()
+#else
+static void INTERRUPT newKeyboardInterrupt()
+#endif
 {
 	keyCommands();
 
@@ -127,23 +161,34 @@ static void INTERRUPT newKeyboardHandler()
 
 void initKeyboard()
 {
-	if(!oldKeyboardHandler) {
-		// set our interrupt handler
-		_disable();
+	_disable();
+
+	#ifdef __DJGPP__
+		_go32_dpmi_get_protected_mode_interrupt_vector(KEYBOARD_INTERRUPT, &oldKeyboardHandler);
+
+		newKeyboardHandler.pm_offset   = (unsigned long)newKeyboardInterrupt;
+		newKeyboardHandler.pm_selector = _go32_my_cs();
+
+		_go32_dpmi_set_protected_mode_interrupt_vector(KEYBOARD_INTERRUPT, &newKeyboardHandler);
+	#else
 		oldKeyboardHandler = _dos_getvect(KEYBOARD_INTERRUPT);
-		_dos_setvect(KEYBOARD_INTERRUPT, newKeyboardHandler);
-		_enable();
-	}
+		_dos_setvect(KEYBOARD_INTERRUPT, newKeyboardInterrupt);
+	#endif
 
 	memset(&buttonsHeld, 0, sizeof(Buttons));
+
+	_enable();
 }
 
 void deinitKeyboard()
 {
-	if(oldKeyboardHandler) {
-		// restore the original interrupt handler
-		_disable();
+	_disable();
+
+	#ifdef __DJGPP__
+		_go32_dpmi_set_protected_mode_interrupt_vector(KEYBOARD_INTERRUPT, &oldKeyboardHandler);
+	#else
 		_dos_setvect(KEYBOARD_INTERRUPT, oldKeyboardHandler);
-		_enable();
-	}
+	#endif
+
+	_enable();
 }

@@ -21,6 +21,7 @@ static uint32 startingFpsTime = 0;
 static int fpsFontsInit = 0;
 static int nFrames = 0;
 
+#define INTERRUPT __interrupt __far
 #define TIMER_INTERRUPT 0x08
 
 #ifdef SOUND_ON
@@ -50,13 +51,13 @@ static bool timerInterruptInit = false;
 	static _go32_dpmi_seginfo oldTimerHandler;
 	static _go32_dpmi_seginfo newTimerHandler;
 #else
-	static void (__interrupt __far *oldDosTimerInterrupt)();
+	static void (INTERRUPT *oldDosTimerInterrupt)();
 #endif
 
 #ifdef __DJGPP__
 static void newTimerInterrupt()
 #else
-static void __interrupt __far newTimerInterrupt()
+static void INTERRUPT newTimerInterrupt()
 #endif
 {
 	timeValue++;

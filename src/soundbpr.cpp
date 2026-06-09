@@ -7,29 +7,51 @@ static Sound sound[SOUNDS_NUM];
 
 static void startSound(uint8 freq1, uint8 freq2)
 {
-	_asm
-	{
-		mov al,0b6h
-		out 43h,al
-		mov al,freq1
-		out 42h,al
-		mov al,freq2
-		out 42h,al
+	#ifdef __DJGPP__
+		/*__asm__ __volatile__ (
+			"movb %b0, %%al\n\t"
+			"movb %b1, %%ah"
+			:
+			: "b" (freq1),
+			  "b" (freq2)
+			: "eax"
+		);*/
+	#else
+		_asm
+		{
+			mov al,0b6h
+			out 43h,al
+			mov al,freq1
+			out 42h,al
+			mov al,freq2
+			out 42h,al
 
-		in al,61h
-		or al,3
-		out 61h,al
-	}
+			in al,61h
+			or al,3
+			out 61h,al
+		}
+	#endif
 }
 
 static void endSound()
 {
-	_asm
-	{
-		in al,61h
-		and al,0fch
-		out 61h,al
-	}
+	#ifdef __DJGPP__
+		__asm__ __volatile__ (
+			"inb $0x61, %%al\n\t"
+			"andb $0x0fc, %%al\n\t"
+			"outb %%al, $0x61"
+			:
+			:
+			: "eax", "memory"
+		);
+	#else
+		_asm
+		{
+			in al,61h
+			and al,0fch
+			out 61h,al
+		}
+	#endif
 }
 
 void playSound(int index)

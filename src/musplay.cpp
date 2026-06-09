@@ -1,3 +1,5 @@
+#ifdef SOUND_ON
+
 /*
  *	Name:		MUS File Player
  *	Version:	1.75
@@ -370,3 +372,5 @@ void playMusFile(int musIndex)
 		currentMusIndex = musIndex;
 	}
 }
+
+#endif
