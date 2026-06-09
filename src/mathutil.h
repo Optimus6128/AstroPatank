@@ -3,7 +3,10 @@
 
 #include "types.h"
 
-#define PI 3.14159265359f
+#ifndef PI
+	#define PI 3.14159265359f
+#endif
+
 #define CLAMP(a,min,max) { if (a < min) a = min; if (a > max) a = max; }
 #define CLAMP_LEFT(a,min) { if (a < min) a = min; }
 #define CLAMP_RIGHT(a,max) { if (a > max) a = max; }

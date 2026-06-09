@@ -7,7 +7,7 @@
 #include "game.h"
 #include "types.h"
 
-static  bitfonts[] = {0,0,0,0,0,0,0,0,4,12,8,24,16,0,32,0,10,18,20,0,0,0,0,0,0,20,126,40,252,80,
+static uint8 bitfonts[] = {0,0,0,0,0,0,0,0,4,12,8,24,16,0,32,0,10,18,20,0,0,0,0,0,0,20,126,40,252,80,
 0,0,6,25,124,32,248,34,28,0,4,12,72,24,18,48,32,0,14,18,20,8,21,34,29,0,32,32,64,0,0,0,
 0,0,16,32,96,64,64,64,32,0,4,2,2,2,6,4,8,0,8,42,28,127,28,42,8,0,0,4,12,62,24,16,
 0,0,0,0,0,0,0,0,32,64,0,0,0,60,0,0,0,0,0,0,0,0,0,0,32,0,4,12,8,24,16,48,
@@ -78,7 +78,7 @@ static void drawFontScale(int xp, int yp, int ch, uint8 colOffset, int scaleBits
     }
 }
 
-void drawText(int xp, int yp, char *text, uint8 colOffset, int scaleBits, uint8 *vram)
+void drawText(int xp, int yp, const char *text, uint8 colOffset, int scaleBits, uint8 *vram)
 {	
 	while (char c = *text++) {
         if (c>96 && c<123) {

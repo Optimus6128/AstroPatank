@@ -12,8 +12,14 @@
 #define PIC1_CMD_PORT	0x20
 #define OCW2_EOI		(1 << 5)
 
-static void (INTERRUPT *prevKeyboardHandler)();
-static void INTERRUPT myKeyboardInterrupt();
+
+#ifdef __DJGPP__
+	static _go32_dpmi_seginfo oldKeyboardHandler;
+	static _go32_dpmi_seginfo newKeyboardHandler;
+#else
+	static void (INTERRUPT *oldKeyboardHandler)();
+	static void INTERRUPT newKeyboardHandler();
+#endif
 
 Buttons buttonsHeld;
 
@@ -112,7 +118,7 @@ static void keyCommands()
 	clearKeyboardBuffer();
 }
 
-static void INTERRUPT myKeyboardInterrupt()
+static void INTERRUPT newKeyboardHandler()
 {
 	keyCommands();
 
@@ -121,11 +127,11 @@ static void INTERRUPT myKeyboardInterrupt()
 
 void initKeyboard()
 {
-	if(!prevKeyboardHandler) {
+	if(!oldKeyboardHandler) {
 		// set our interrupt handler
 		_disable();
-		prevKeyboardHandler = _dos_getvect(KEYBOARD_INTERRUPT);
-		_dos_setvect(KEYBOARD_INTERRUPT, myKeyboardInterrupt);
+		oldKeyboardHandler = _dos_getvect(KEYBOARD_INTERRUPT);
+		_dos_setvect(KEYBOARD_INTERRUPT, newKeyboardHandler);
 		_enable();
 	}
 
@@ -134,10 +140,10 @@ void initKeyboard()
 
 void deinitKeyboard()
 {
-	if(prevKeyboardHandler) {
+	if(oldKeyboardHandler) {
 		// restore the original interrupt handler
 		_disable();
-		_dos_setvect(KEYBOARD_INTERRUPT, prevKeyboardHandler);
+		_dos_setvect(KEYBOARD_INTERRUPT, oldKeyboardHandler);
 		_enable();
 	}
 }

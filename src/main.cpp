@@ -1,4 +1,4 @@
-#include <i86.h>
+//#include <i86.h>
 #include <stdio.h>
 #include <conio.h>
 #include <string.h>
@@ -34,7 +34,7 @@ static void initSystem()
 	#ifdef SOUND_ON
 		initSound();
 		loadMusDriver();
-		delay(500);
+		//delay(500);
 	#endif
 
 	initTimer();

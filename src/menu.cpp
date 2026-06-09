@@ -19,7 +19,7 @@
 
 #include "meshdata.h"
 
-static char* menuOptions[] = { "Start", "Quit" };
+static const char* menuOptions[] = { "Start", "Quit" };
 
 static int menuSelect = 0;
 
