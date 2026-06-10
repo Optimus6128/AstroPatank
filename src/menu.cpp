@@ -271,5 +271,6 @@ void menuRun(Screen *screen, int t)
 
 	if (menuFinallyOn) {
 		renderMenu(screen);
+		setIsInGame(true);
 	}
 }

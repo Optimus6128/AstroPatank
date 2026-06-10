@@ -10,6 +10,7 @@
 #include <dos.h>
 #include <stdlib.h>
 
+#include "main.h"
 #include "tinyfont.h"
 #include "game.h"
 #include "musplay.h"
@@ -26,8 +27,6 @@ static int nFrames = 0;
 
 // hack for player
 #define OOF 2.6
-
-static uint32 *my_clock = (uint32*)0x046C;
 
 static uint32 timeValue = 0;
 static int32 nextOldTimer = 0;
@@ -141,6 +140,7 @@ static void timerInterruptEnd()
 
 uint32 getTime()
 {
+	//return (uint32)(*my_clock * (1000.0f / 18.2f));
 	return (uint32)(timeValue / OOF);
 }
 

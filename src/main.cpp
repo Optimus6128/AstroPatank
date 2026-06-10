@@ -1,4 +1,3 @@
-//#include <i86.h>
 #include <stdio.h>
 #include <conio.h>
 #include <string.h>
@@ -16,10 +15,17 @@
 
 //#define MEM_DEBUG
 
+#ifdef __DJGPP__
+	#include <sys/nearptr.h>
+#endif
 
 static Video *video;
 static Screen screen;
 static bool vsync = true;
+
+uint8 *VGAptr = (uint8*)0xA0000;
+uint8 *TXTptr = (uint8*)0xB8000;
+uint16 *my_clock = (uint16*)0x046C;
 
 
 static void interpretArgument(char *arg)
@@ -31,6 +37,15 @@ static void interpretArgument(char *arg)
 
 static void initSystem()
 {
+
+	#ifdef __DJGPP__
+		__djgpp_nearptr_enable();
+
+		VGAptr += __djgpp_conventional_base;
+		TXTptr += __djgpp_conventional_base;
+		my_clock = (uint16*)((uint8*)my_clock + __djgpp_conventional_base);
+	#endif
+
 	#ifdef SOUND_ON
 		initSound();
 		loadMusDriver();
@@ -38,7 +53,7 @@ static void initSystem()
 	#endif
 
 	initTimer();
-	initKeyboard();
+	//initKeyboard();
 
 	initVideoModeInfo();
 
@@ -115,14 +130,15 @@ int main(int argc, char **argv)
 	#endif
 	
 	while(!isGameQuit()) {
+	//for (int i=0; i<10000; ++i) {
 		screen.data = getRenderBuffer(video);
 		gameRun(&screen, getTime());
-		if (buttonsHeld.select) drawFps(video);
+		/*if (buttonsHeld.select)*/ drawFps(video);
 		updateFrame(video, vsync);
 	}
 
 	deinitTimer();
-	deinitKeyboard();
+	//deinitKeyboard();
 
 	#ifdef SOUND_ON
 		shutdownMusPlay();
@@ -131,10 +147,15 @@ int main(int argc, char **argv)
 
 	setTextMode();
 
+	#ifdef __DJGPP__
+		__djgpp_nearptr_disable();
+	#endif
+
 	#ifdef MEM_DEBUG
 	uint32 mem2 = getFreeMem();
 	printf("%d\n%d\n%d\n", mem0, mem1, mem2);
 	#endif
+
 
 	return 0;
 }
