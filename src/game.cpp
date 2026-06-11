@@ -33,7 +33,6 @@
 
 #define PPOS_BITS 8
 
-#define NUM_THINGS 64
 
 #define PLAYER_THING_BASE 0
 #define NUM_PLAYERS 1
@@ -56,6 +55,8 @@
 
 #define RING_BONUS_THING_BASE (WEAPON_BONUS_THING_BASE + MAX_WEAPON_BONUS)
 #define MAX_RING_BONUS 6
+
+#define NUM_THINGS (RING_BONUS_THING_BASE + MAX_RING_BONUS)
 
 
 #define ANTI_SPAWN_PLAYER 128
@@ -425,31 +426,33 @@ static void updatePlayerHit()
 		return;
 	}
 
-	uint8 *spaceshipCols = gtPlayer->mesh->polyColor;
-	if (playerHit.justHit) {
-		if (shield == 0) {
-			energy -= playerHit.damage;
-			if (energy < 0) energy = 0;
-		} else {
-			shield -= playerHit.damage;
-			if (shield < 0) shield = 0;
+	if (gtPlayer->mesh) {
+		uint8 *spaceshipCols = gtPlayer->mesh->polyColor;
+		if (playerHit.justHit) {
+			if (shield == 0) {
+				energy -= playerHit.damage;
+				if (energy < 0) energy = 0;
+			} else {
+				shield -= playerHit.damage;
+				if (shield < 0) shield = 0;
+			}
+			playSound(SOUND_PLAYER_HIT);
+			playerHit.justHit = false;
 		}
-		playSound(SOUND_PLAYER_HIT);
-		playerHit.justHit = false;
-	}
 
-	if (playerHit.warmUp!=0) {
-		// Ugly lazy hack for now
-		if ((playerHit.warmUp & 15) > 7) {
-			spaceshipCols[0] = 8;
-			spaceshipCols[1] = 8;
-			spaceshipCols[2] = 8;
-		} else {
-			spaceshipCols[0] = 2;
-			spaceshipCols[1] = 4;
-			spaceshipCols[2] = 2;
+		if (playerHit.warmUp!=0) {
+			// Ugly lazy hack for now
+			if ((playerHit.warmUp & 15) > 7) {
+				spaceshipCols[0] = 8;
+				spaceshipCols[1] = 8;
+				spaceshipCols[2] = 8;
+			} else {
+				spaceshipCols[0] = 2;
+				spaceshipCols[1] = 4;
+				spaceshipCols[2] = 2;
+			}
+			--playerHit.warmUp;
 		}
-		--playerHit.warmUp;
 	}
 }
 
@@ -533,15 +536,17 @@ static void updateSpawning()
 				if (spawnVal == 0) {
 					setRandomThingPosition(gt, 0);
 				}
-				int gridScaleX = (gt->mesh->gridScaleX * spawnVal) / SPAWN_FULL;
-				int gridScaleY = (gt->mesh->gridScaleY * spawnVal) / SPAWN_FULL;
-				int gridScaleZ = (gt->mesh->gridScaleZ * spawnVal) / SPAWN_FULL;
-				if (gridScaleX<=0) gridScaleX = 1;
-				if (gridScaleY<=0) gridScaleY = 1;
-				if (gridScaleZ<=0) gridScaleZ = 1;
-				gt->spawnMeshScale.x = gridScaleX;
-				gt->spawnMeshScale.y = gridScaleY;
-				gt->spawnMeshScale.z = gridScaleZ;
+				if (gt->mesh) {
+					int gridScaleX = (gt->mesh->gridScaleX * spawnVal) / SPAWN_FULL;
+					int gridScaleY = (gt->mesh->gridScaleY * spawnVal) / SPAWN_FULL;
+					int gridScaleZ = (gt->mesh->gridScaleZ * spawnVal) / SPAWN_FULL;
+					if (gridScaleX<=0) gridScaleX = 1;
+					if (gridScaleY<=0) gridScaleY = 1;
+					if (gridScaleZ<=0) gridScaleZ = 1;
+					gt->spawnMeshScale.x = gridScaleX;
+					gt->spawnMeshScale.y = gridScaleY;
+					gt->spawnMeshScale.z = gridScaleZ;
+				}
 			}
 			if (spawnVal == SPAWN_FULL) {
 				gt->alive = true;
@@ -561,9 +566,11 @@ static void updateSpawning()
 					}
 					mustUpdateLives = true;
 				}
-				gt->spawnMeshScale.x = gt->mesh->gridScaleX;
-				gt->spawnMeshScale.y = gt->mesh->gridScaleY;
-				gt->spawnMeshScale.z = gt->mesh->gridScaleZ;
+				if (gt->mesh) {
+					gt->spawnMeshScale.x = gt->mesh->gridScaleX;
+					gt->spawnMeshScale.y = gt->mesh->gridScaleY;
+					gt->spawnMeshScale.z = gt->mesh->gridScaleZ;
+				}
 			}
 		}
 	}
@@ -660,7 +667,7 @@ static void initThings()
 
 	for (int i=0; i<NUM_THINGS; i++) {
 		GameThing *gt = &thing[i];
-		if (gt->spawn == SPAWN_FULL) {
+		if (gt->spawn == SPAWN_FULL && gt->mesh) {
 			gt->spawnMeshScale.x = gt->mesh->gridScaleX;
 			gt->spawnMeshScale.y = gt->mesh->gridScaleY;
 			gt->spawnMeshScale.z = gt->mesh->gridScaleZ;
