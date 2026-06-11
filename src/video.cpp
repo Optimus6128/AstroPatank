@@ -250,6 +250,8 @@ uint8 *getRenderBuffer(Video *vm)
 void waitForVsync()
 {
 	#ifdef __DJGPP__
+		while(inp(0x3da) & 8) {};
+		while(!(inp(0x3da) & 8)) {};
 	#else
 		_asm
 		{
@@ -271,9 +273,9 @@ void waitForVsync()
 void setPalFromTab(uint8 colstart, uint8 *paltab, uint16 colnum)
 {
 	#ifdef __DJGPP__
-		outportb(0x3c8, colstart);
+		outp(0x3c8, colstart);
 		for (uint16 i=0; i<3 * colnum; ++i)
-			outportb(0x3c9, paltab[i]);
+			outp(0x3c9, paltab[i]);
 	#else
 		_asm
 		{
@@ -298,10 +300,10 @@ void setPalFromTab(uint8 colstart, uint8 *paltab, uint16 colnum)
 void setSingleColorPal(uint8 color, uint8 r, uint8 g, uint8 b)
 {
 	#ifdef __DJGPP__
-		outportb(0x3c8, color);
-		outportb(0x3c9, r);
-		outportb(0x3c9, g);
-		outportb(0x3c9, b);
+		outp(0x3c8, color);
+		outp(0x3c9, r);
+		outp(0x3c9, g);
+		outp(0x3c9, b);
 	#else
 		_asm
 		{
