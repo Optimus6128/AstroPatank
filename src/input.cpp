@@ -156,7 +156,9 @@ static void INTERRUPT newKeyboardInterrupt()
 {
 	keyCommands();
 
-	//outp(PIC1_CMD_PORT, OCW2_EOI);	// send end-of-interrupt
+	#ifndef __DJGPP__
+		outp(PIC1_CMD_PORT, OCW2_EOI);	// send end-of-interrupt
+	#endif
 }
 
 void initKeyboard()
