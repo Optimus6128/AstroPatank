@@ -185,6 +185,27 @@ void setSvgaWindow(uint16 window)
 	#endif
 }
 
+static void myMemCopy(void *dst, void *src, size_t sizeInBytes)	// Damn DJGPP 386 build (will also write my own version in x86 assembly later)
+{
+	#ifndef __DJGPP__
+		memcpy(dst, src, sizeInBytes);
+	#else
+		int count = sizeInBytes >> (2 + 3);	// unroll it also 8 times
+		uint32 *src32 = (uint32*)src;
+		uint32 *dst32 = (uint32*)dst;
+		do {
+			*dst32++ = *src32++;
+			*dst32++ = *src32++;
+			*dst32++ = *src32++;
+			*dst32++ = *src32++;
+			*dst32++ = *src32++;
+			*dst32++ = *src32++;
+			*dst32++ = *src32++;
+			*dst32++ = *src32++;
+		}while(--count >= 0);
+	#endif
+}
+
 void copyBufferToSvga(Video *vm)
 {
 	uint16 window = 0;
@@ -195,19 +216,28 @@ void copyBufferToSvga(Video *vm)
 	while (bytesLeft > 65535)
 	{
 		setSvgaWindow(window++);
-		memcpy(dst, src, 65536);
+		myMemCopy(dst, src, 65536);
 		bytesLeft -= 65536;
 		src += 65536;
 	}
 	setSvgaWindow(window);
-	memcpy(dst, src, bytesLeft);
+	myMemCopy(dst, src, bytesLeft);
 }
 
 void clearFrame(Video *vm)
 {
 	uint8 *vram = getRenderBuffer(vm);
 	const uint32 size = vm->width * vm->height;
-	memset(vram, 0, size);
+
+	#ifndef __DJGPP__
+		memset(vram, 0, size);
+	#else
+		int count = size >> 2;
+		uint32 *dst32 = (uint32*)vram;
+		do {
+			*dst32++ = 0;
+		} while(--count >= 0);
+	#endif
 }
 
 void updateFrame(Video *vm, bool vsync)
@@ -228,7 +258,7 @@ void updateFrame(Video *vm, bool vsync)
 		copyBufferToSvga(vm);
 	} else {
 		const uint32 size = (vm->width * vm->height * vm->bpp) >> 3;
-		memcpy(vm->vram, &vm->buffer[vramPage * size], size);
+		myMemCopy(vm->vram, &vm->buffer[vramPage * size], size);
 		vramPage = (vramPage + 1) % NUM_SOFT_BUFFERS;
 	}
 }

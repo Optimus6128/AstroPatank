@@ -1,10 +1,10 @@
 CC = gxx
 AS = nasm
 ASFLAGS = -f coff
-CXXFLAGS = -O3 -march=i486 -fomit-frame-pointer -funroll-loops -ffast-math -fno-strict-aliasing
+CXXFLAGS = -O3 -march=i386 -ffast-math -fomit-frame-pointer -funroll-loops -fno-strict-aliasing
 OBJ = main.o game.o menu.o fonts.o video.o timer.o input.o sound.o soundbpr.o musplay.o tinyfont.o mathutil.o gfxtools.o engine.o r_line.o r_poly.o poly.o draw.o mesh.o meshdata.o tile_3d.o map1.o
 
-demo.exe : $(OBJ)
+demoj.exe : $(OBJ)
 	$(CC) $(OBJ) -lemu -o demoj.exe
 %.o : %.cpp
 	$(CC) $(CXXFLAGS) -c $<
