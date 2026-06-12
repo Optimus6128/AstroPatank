@@ -865,9 +865,9 @@ static void updateUI(Screen *screen, int t)
 static void clearScreen(Screen *screen)
 {
 	const int screenSize = (screen->width * screen->height * screen->bpp) >> (3 + UNCHAINED_BITS);
-	#ifndef __DJGPP__
+	//#ifndef __DJGPP__
 		memset(screen->data, 0, screenSize);
-	#else
+	/*#else
 		int count = screenSize >> (2 + 3);	// to unroll it 8 times
 		uint32 *dst32 = (uint32*)screen->data;
 		do {
@@ -880,7 +880,7 @@ static void clearScreen(Screen *screen)
 			*dst32++ = 0;
 			*dst32++ = 0;
 		} while(--count >= 0);
-	#endif
+	#endif*/
 }
 
 //#define SHOW_PALETTE

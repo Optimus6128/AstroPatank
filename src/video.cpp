@@ -258,7 +258,8 @@ void updateFrame(Video *vm, bool vsync)
 		copyBufferToSvga(vm);
 	} else {
 		const uint32 size = (vm->width * vm->height * vm->bpp) >> 3;
-		myMemCopy(vm->vram, &vm->buffer[vramPage * size], size);
+		//myMemCopy(vm->vram, &vm->buffer[vramPage * size], size);
+		memcpy(vm->vram, &vm->buffer[vramPage * size], size);
 		vramPage = (vramPage + 1) % NUM_SOFT_BUFFERS;
 	}
 }
