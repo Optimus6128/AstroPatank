@@ -185,7 +185,8 @@ void setSvgaWindow(uint16 window)
 	#endif
 }
 
-static void myMemCopy(void *dst, void *src, size_t sizeInBytes)	// Damn DJGPP 386 build (will also write my own version in x86 assembly later)
+// Edit: just compile with i486 (works on 386 so far)
+/*static void myMemCopy(void *dst, void *src, size_t sizeInBytes)	// Damn DJGPP 386 build (will also write my own version in x86 assembly later)
 {
 	#ifndef __DJGPP__
 		memcpy(dst, src, sizeInBytes);
@@ -204,7 +205,7 @@ static void myMemCopy(void *dst, void *src, size_t sizeInBytes)	// Damn DJGPP 38
 			*dst32++ = *src32++;
 		}while(--count >= 0);
 	#endif
-}
+}*/
 
 void copyBufferToSvga(Video *vm)
 {
@@ -216,12 +217,12 @@ void copyBufferToSvga(Video *vm)
 	while (bytesLeft > 65535)
 	{
 		setSvgaWindow(window++);
-		myMemCopy(dst, src, 65536);
+		memcpy(dst, src, 65536);
 		bytesLeft -= 65536;
 		src += 65536;
 	}
 	setSvgaWindow(window);
-	myMemCopy(dst, src, bytesLeft);
+	memcpy(dst, src, bytesLeft);
 }
 
 void clearFrame(Video *vm)
@@ -229,15 +230,7 @@ void clearFrame(Video *vm)
 	uint8 *vram = getRenderBuffer(vm);
 	const uint32 size = vm->width * vm->height;
 
-	#ifndef __DJGPP__
-		memset(vram, 0, size);
-	#else
-		int count = size >> 2;
-		uint32 *dst32 = (uint32*)vram;
-		do {
-			*dst32++ = 0;
-		} while(--count >= 0);
-	#endif
+	memset(vram, 0, size);
 }
 
 void updateFrame(Video *vm, bool vsync)
@@ -258,7 +251,6 @@ void updateFrame(Video *vm, bool vsync)
 		copyBufferToSvga(vm);
 	} else {
 		const uint32 size = (vm->width * vm->height * vm->bpp) >> 3;
-		//myMemCopy(vm->vram, &vm->buffer[vramPage * size], size);
 		memcpy(vm->vram, &vm->buffer[vramPage * size], size);
 		vramPage = (vramPage + 1) % NUM_SOFT_BUFFERS;
 	}
@@ -279,79 +271,24 @@ uint8 *getRenderBuffer(Video *vm)
 
 void waitForVsync()
 {
-	#ifdef __DJGPP__
-		while(inp(0x3da) & 8) {};
-		while(!(inp(0x3da) & 8)) {};
-	#else
-		_asm
-		{
-			mov dx,3dah
-
-			vsync_in:
-				in al,dx
-				and al,8
-			jnz vsync_in
-
-			vsync_out:
-				in al,dx
-				and al,8
-			jz vsync_out
-		}
-	#endif
+	while(inp(0x3da) & 8) {};
+	while(!(inp(0x3da) & 8)) {};
 }
 
 void setPalFromTab(uint8 colstart, uint8 *paltab, uint16 colnum)
 {
-	#ifdef __DJGPP__
-		outp(0x3c8, colstart);
-		for (uint16 i=0; i<3 * colnum; ++i)
-			outp(0x3c9, paltab[i]);
-	#else
-		_asm
-		{
-			mov dx,03c8h
-			mov al,colstart
-			out dx,al
-			inc dx
-
-			mov ax,colnum
-			lea ecx,[eax + eax*2]
-
-			mov ebx,paltab
-			paltab_loop:
-				mov al,[ebx]
-				inc ebx
-				out dx,al
-			loopw paltab_loop
-		}
-	#endif
+	outp(0x3c8, colstart);
+	for (uint16 i=0; i<3 * colnum; ++i) {
+		outp(0x3c9, paltab[i]);
+	}
 }
 
 void setSingleColorPal(uint8 color, uint8 r, uint8 g, uint8 b)
 {
-	#ifdef __DJGPP__
-		outp(0x3c8, color);
-		outp(0x3c9, r);
-		outp(0x3c9, g);
-		outp(0x3c9, b);
-	#else
-		_asm
-		{
-			mov dx,03c8h
-			mov al,color
-			out dx,al
-			inc dx
-
-			mov al,r
-			out dx,al
-
-			mov al,g
-			out dx,al
-
-			mov al,b
-			out dx,al
-		}
-	#endif
+	outp(0x3c8, color);
+	outp(0x3c9, r);
+	outp(0x3c9, g);
+	outp(0x3c9, b);
 }
 
 void setGradPal(int c0, int c1, int r0, int g0, int b0, int r1, int g1, int b1)

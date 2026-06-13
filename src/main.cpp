@@ -1,3 +1,4 @@
+#include <dos.h>
 #include <stdio.h>
 #include <conio.h>
 #include <string.h>
@@ -17,6 +18,8 @@
 
 #ifdef __DJGPP__
 	#include <sys/nearptr.h>
+	#include <dpmi.h>
+	#include <go32.h>
 #endif
 
 static Video *video;
@@ -78,8 +81,8 @@ static void initSystem()
 	initTinyFonts();
 }
 
-struct dpmi_free_mem {
-	uint32 largest_block;
+typedef struct FreeMemInfo {
+	uint32 largest_available_block;
 	uint32 max_unlocked_page;
 	uint32 max_locked_page;
 	uint32 total_unlocked;
@@ -88,26 +91,36 @@ struct dpmi_free_mem {
 	uint32 free_linear;
 	uint32 swap_file_size;
 	uint32 dummy[3];
-};
+} FreeMemInfo;
 
 #ifdef MEM_DEBUG
 uint32 getFreeMem() {
-    union REGS regs = {0};
-    struct SREGS sregs = {0};
-    struct dpmi_free_mem meminfo = {0};
+	#ifdef __DJGPP__
+		__dpmi_free_mem_info memInfo = {0};
 
-	memset(&meminfo, 0xFF, sizeof(meminfo));
+        if (__dpmi_get_free_memory_information(&memInfo) == 0) {
+            //return (uint32)memInfo.largest_available_free_block_in_bytes;
+			return (uint32)memInfo.total_number_of_free_pages * 4096;
+		}
+		return 0;
+	#else
+		FreeMemInfo memInfo;
+		memset(&memInfo, 0xFF, sizeof(memInfo));
 
-    sregs.es = FP_SEG(&meminfo);
-    regs.x.edi = FP_OFF(&meminfo);
-    regs.x.eax = 0x0500;
+		union REGS regs = {0};
+		struct SREGS sregs = {0};
 
-    int386x(0x31, &regs, &regs, &sregs);
+		sregs.es = FP_SEG(&memInfo);
+		regs.x.edi = FP_OFF(&memInfo);
+		regs.x.eax = 0x0500;
 
-    if (regs.x.cflag == 0) {
-		return meminfo.largest_block;
-    }
-	return 0;
+		int386x(0x31, &regs, &regs, &sregs);
+
+		if (regs.x.cflag == 0) {
+			return memInfo.largest_available_block;
+		}
+		return 0;
+	#endif
 }
 #endif
 
