@@ -40,9 +40,7 @@ static ScreenPoint2D *scrPlist[MAX_BLOCKS_PER_MAP * 24];		// good theoritical ma
 																// EDIT: Can barely make it run with 3MB now (other things reduced in engine). If I am at this safe place so at worse it requires 4MB I will be ok.
 static ScreenPoint2D **spNext = scrPlist;
 
-//#ifndef __DJGPP__
-	#define FILL_SHAPES_ASM
-//#endif
+#define FILL_SHAPES_ASM
 
 extern "C" {
 	void drawRectangleAsm(ScreenPoint2D *p0, ScreenPoint2D *p1, uint8 color, uint8 *vram);

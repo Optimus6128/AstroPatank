@@ -20,9 +20,7 @@ typedef struct Scanline
 } Scanline;
 
 
-#ifndef __DJGPP__
-	#define FILL_SCANLINES_ASM
-#endif
+#define FILL_SCANLINES_ASM
 
 extern "C" {
 	void fillScanlinesAsm(uint8 color, uint8 *vram);
