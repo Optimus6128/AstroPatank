@@ -1,8 +1,6 @@
 #ifndef MUSPLAY_H
 #define MUSPLAY_H
 
-#ifdef SOUND_ON
-
 #include "types.h"
 
 enum {
@@ -18,7 +16,5 @@ void stopMusPlay();
 void shutdownMusPlay();
 
 uint32 getMusTicks();
-
-#endif
 
 #endif

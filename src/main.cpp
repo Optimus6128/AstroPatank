@@ -52,7 +52,7 @@ static void initSystem()
 	#ifdef SOUND_ON
 		initSound();
 		loadMusDriver();
-		//delay(500);
+		delay(500);
 	#endif
 
 	initTimer();
@@ -145,7 +145,7 @@ int main(int argc, char **argv)
 	while(!isGameQuit()) {
 		screen.data = getRenderBuffer(video);
 		gameRun(&screen, getTime());
-		/*if (buttonsHeld.select)*/ drawFps(video);
+		if (buttonsHeld.select | !vsync) drawFps(video);
 		updateFrame(video, vsync);
 	}
 

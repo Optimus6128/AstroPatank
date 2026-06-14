@@ -3,7 +3,9 @@
 
 #include "types.h"
 
-//#define SOUND_ON
+#ifndef __DJGPP__
+	#define SOUND_ON
+#endif
 
 #define SCR_W 320
 #define SCR_H 200

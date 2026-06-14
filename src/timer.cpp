@@ -58,7 +58,7 @@ static void INTERRUPT newTimerInterrupt()
 		updateSound();
 	}
 
-/*#ifndef __DJGPP__
+#ifndef __DJGPP__
 	nextOldTimer -= 10;
 	if(nextOldTimer <= 0) {
 		nextOldTimer += 182;
@@ -66,9 +66,9 @@ static void INTERRUPT newTimerInterrupt()
 	} else {
 		outp(0x20,0x20);
 	}
-#else*/
+#else
 		outp(0x20,0x20);
-//#endif
+#endif
 }
 
 static void timerInterruptStart()
