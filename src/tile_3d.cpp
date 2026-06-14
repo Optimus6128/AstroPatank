@@ -40,8 +40,6 @@ static ScreenPoint2D *scrPlist[MAX_BLOCKS_PER_MAP * 24];		// good theoritical ma
 																// EDIT: Can barely make it run with 3MB now (other things reduced in engine). If I am at this safe place so at worse it requires 4MB I will be ok.
 static ScreenPoint2D **spNext = scrPlist;
 
-#define FILL_SHAPES_ASM
-
 extern "C" {
 	void drawRectangleAsm(ScreenPoint2D *p0, ScreenPoint2D *p1, uint8 color, uint8 *vram);
 }
@@ -422,7 +420,7 @@ static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 
 	uint8 colStart = ((layer+1) * 16) / TILEMAP_LAYERS;
 	if (colStart > 15) colStart = 15;
-
+// 672, 485, 437, 372
 	const int tileRowOffset = layer * TILEMAP_LAYER_SIZE + tmapGridInfo.y0 * TILEMAP_WIDTH;
 	uint16 *tileSpIndex = &tileMeshScreenPointIndex[tileRowOffset];
 	uint8 *tmap = &tilemap3d[tileRowOffset];
@@ -436,21 +434,21 @@ static void renderTilemap3DLayerMesh(uint8 layer, uint8 *vram)
 
 				// X
 				if (spQuad[0] && spQuad[0]->x > spQuad[1]->x) {
-					drawQuad(spQuad, color, vram);
+					drawTilemapQuad(spQuad, color, vram);
 				}
 				color--; spQuad+=4;
 				if (spQuad[0] && spQuad[0]->x < spQuad[1]->x) {
-					drawQuad(spQuad, color, vram);
+					drawTilemapQuad(spQuad, color, vram);
 				}
 				color--; spQuad+=4;
 
 				// Y
 				if (spQuad[0] && spQuad[0]->y > spQuad[1]->y) {
-					drawQuad(spQuad, color, vram);
+					drawTilemapQuad(spQuad, color, vram);
 				}
 				color--; spQuad+=4;
 				if (spQuad[0] && spQuad[0]->y < spQuad[1]->y) {
-					drawQuad(spQuad, color, vram);
+					drawTilemapQuad(spQuad, color, vram);
 				}
 			}
 		}
