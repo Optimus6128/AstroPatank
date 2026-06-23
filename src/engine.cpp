@@ -29,7 +29,7 @@ static char scrPolyVis[MAX_POLYS];
 
 // No need to care much for such small polys in this game about sorting (reduced all values too short)
 #define MAX_AVG_Z 8192
-#define Z_BUCKET_RANGE 16
+#define Z_BUCKET_RANGE 64
 #define Z_BUCKETS_NUM (MAX_AVG_Z / Z_BUCKET_RANGE)
 #define Z_BUCKET_MAX_POLYS 32
 
@@ -169,10 +169,6 @@ static void translateAndProjectMesh(Mesh *ms)
 			// We want center subpixel? Can change it later here globally, not everywhere else on the renderers
 			dst->x = (xp + SCR_RANGE / 2);
 			dst->y = (yp + SCR_RANGE / 2);
-
-			if (xp < 0 || xp >= ((SCR_W-1) << SCR_BITS) || yp < 0 || yp >= ((SCR_H-1) << SCR_BITS)) {
-				z = 0;	// z<=0 denotes skip this point later for the renderer
-			}
 		}
 		dst->z = z;
 		++src;
@@ -238,17 +234,6 @@ static void updateFaceOrderPolysVis(Mesh *ms)
 			ScreenPoint *p1 = &scrPoints[src[1]];
 			ScreenPoint *p2 = &scrPoints[src[2]];
 
-			// Might have overflown in the past but I might have reduced SCR_BITS anyway.
-			/*int x0 = p0->x >> SCR_BITS;
-			int y0 = p0->y >> SCR_BITS;
-			int x1 = p1->x >> SCR_BITS;
-			int y1 = p1->y >> SCR_BITS;
-			int x2 = p2->x >> SCR_BITS;
-			int y2 = p2->y >> SCR_BITS;
-
-			int faceOrder = (x0 - x1) * (y2 - y1) - (x2 - x1) * (y0 - y1);*/
-
-			// If it's fine with small objects then keep this instead, no need to shift down bits
 			int faceOrder = (p0->x - p1->x) * (p2->y - p1->y) - (p2->x - p1->x) * (p0->y - p1->y);
 			if (faceOrder >= 0) {
 				polyIsVis = 1;
@@ -315,7 +300,6 @@ static void renderMeshPolys(Mesh *ms, uint8 *vram)
 		src += edgesNum;
 		polyIndexBase += edgesNum + 1;
 	}
-
 	renderSortedMeshPolys(ms, vram);
 }
 
@@ -385,6 +369,8 @@ static void renderMeshDots(Mesh *ms, uint8 *vram)
 			// Should it be centered pixel or upper left corner?
 			const int sx = src->x;
 			const int sy = src->y;
+
+			if (sx < 0 || sx >= ((SCR_W-1) << SCR_BITS) || sy < 0 || sy >= ((SCR_H-1) << SCR_BITS)) continue;
 
 			#ifndef ANTIALIASING
 				uint8 *dst = vram + VRAM_PIXEL_OFFSET(sx >> (SCR_BITS - UNCHAINED_BITS),sy >> SCR_BITS);
