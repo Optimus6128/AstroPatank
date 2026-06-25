@@ -13,6 +13,9 @@
 #define NUM_POINTS_GRID_HALF 8
 #define NUM_POINTS_AXIS (2*NUM_POINTS_GRID_HALF+1)
 
+#define REC_FPSHR 20
+static int32 recZ[Z_FAR];
+
 int sinTab[SINTAB_SIZE];
 
 static int rotMat[9];
@@ -180,17 +183,16 @@ static void translateAndProjectMesh(Mesh *ms)
     do {
 		int z = src->z + posZ;
 
-		if (z > 0) {
+		//if (z >= Z_NEAR) {
             const int x = src->x + posX;
             const int y = src->y + posY;
 
-			int xp = (x << (PROJ_BITS + SCR_BITS)) / z + (SCR_W << SCR_BITS) / 2;
-			int yp = (SCR_H << SCR_BITS) / 2 - (y << (PROJ_BITS + SCR_BITS)) / z;
+			//if (z > Z_FAR) z = Z_FAR;
+			int32 rcz = recZ[z];
 
-			// We want center subpixel? Can change it later here globally, not everywhere else on the renderers
-			dst->x = (xp + SCR_RANGE / 2);
-			dst->y = (yp + SCR_RANGE / 2);
-		}
+			dst->x = (SCR_W << SCR_BITS) / 2 + (((x << PROJ_BITS) * rcz) >> (REC_FPSHR - SCR_BITS));
+			dst->y = (SCR_H << SCR_BITS) / 2 - (((y << PROJ_BITS) * rcz) >> (REC_FPSHR - SCR_BITS));
+		//}
 		dst->z = z;
 		++src;
 		++dst;
@@ -454,4 +456,8 @@ void initEngine()
 	zBucketIndexMax = Z_BUCKETS_NUM;
 
 	calcRotMatrix = calcRotMatrixXYZ;
+
+	for (int i = Z_NEAR; i < Z_FAR; ++i) {
+		recZ[i] = (1 << REC_FPSHR) / i;
+	}
 }

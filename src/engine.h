@@ -6,6 +6,7 @@
 #include "mesh.h"
 
 #define Z_NEAR 32
+#define Z_FAR 32768
 
 #define MAX_VERTEX_POINTS 128
 #define MAX_POLYS 64
