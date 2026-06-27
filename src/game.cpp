@@ -68,8 +68,9 @@
 
 #define NUM_PARTICLES 256
 
+#define MOVE_MAX 64
+
 #define THRUST_BITS 6
-#define THRUST_MAX (1 << THRUST_BITS)
 
 #define MAX_SHIELD 8
 #define MAX_ENERGY 8
@@ -152,11 +153,10 @@ static Mesh *objectMesh[NUM_MESHES];
 static int objsInLayer[TILEMAP_LAYERS+1][NUM_THINGS];
 static int layerObjCount[TILEMAP_LAYERS+1];
 
-static int playerThrustX = 0;
-static int playerThrustY = 0;
-static int playerMoveSpeed = 4;
+static int playerThrust = 0;
 static int playerAngleSpeed = 2;
-
+static int playerVelocityX = 0;
+static int playerVelocityY = 0;
 static int currentLaser = 0;
 static int playerLaserTime = 0;
 
@@ -558,8 +558,9 @@ static void updateSpawning()
 						playerHit.justHit = false;
 						playerHit.damage = 0;
 						playerHit.warmUp = 0;
-						playerThrustX = 0;
-						playerThrustY = 0;
+						playerVelocityX = 0;
+						playerVelocityY = 0;
+						playerThrust = 0;
 					} else {
 						lives = 0;
 						gt->alive = false;
@@ -827,22 +828,22 @@ static void updateUI(Screen *screen, int t)
 	drawBar(1,1,9,energy, vram);
 	drawBar(1,2,10,shield, vram);
 
-	if (mustUpdateLives) {
-		sprintf(txtLives, "Lives: %d\n", lives);
+	//if (mustUpdateLives) {
+		sprintf(txtLives, "Lives: %d\n", playerVelocityX);
 		mustUpdateLives = false;
-	}
-	drawText(SCR_W - 76, 8, txtLives, 64, 0, vram);
+	//}
+	drawText(SCR_W - 176, 8, txtLives, 64, 0, vram);
 
-	if (mustUpdatePower) {
-		sprintf(txtPower, "Power: %d\n", power);
+	//if (mustUpdatePower) {
+		sprintf(txtPower, "Power: %d\n", playerVelocityY);
 		mustUpdatePower = false;
-	}
-	drawText(SCR_W - 76, 24, txtPower, 112, 0, vram);
+	//}
+	drawText(SCR_W - 176, 24, txtPower, 112, 0, vram);
 
-	if (mustUpdateScore) {
-		sprintf(txtScore, "Score: %d\n", score);
+	//if (mustUpdateScore) {
+		sprintf(txtScore, "Score: %d\n", playerThrust);
 		mustUpdateScore = false;
-	}
+	//}
 	drawText(8, SCR_H - 12, txtScore, 32, 0, vram);
 
 	if (mustUpdateRings) {
@@ -938,8 +939,9 @@ static void restartGameIfEnded()
 	playerHit.justHit = false;
 	playerHit.damage = 0;
 	playerHit.warmUp = 0;
-	playerThrustX = 0;
-	playerThrustY = 0;
+	playerThrust = 0;
+	playerVelocityX = 0;
+	playerVelocityY = 0;
 
 	initThings();
 }
@@ -981,7 +983,20 @@ void setIsInGame(bool inGame)
 	}
 }
 
-static void input3D(int dt)
+static void diminishForce(int &force)
+{
+	int threshold = 2*MOVE_MAX;
+
+	if (force < -threshold) {
+		force += threshold;
+	} else if (force > threshold) {
+		force -= threshold;
+	} else {
+		force = 0;
+	}
+}
+
+static void inputNew(int dt)
 {
 	static bool rMapPressed = false;
 
@@ -1030,31 +1045,11 @@ static void input3D(int dt)
 	gt->rot.y = playerAngle;
 
 	if (buttonsHeld.up) {
-		if (playerThrustX < THRUST_MAX) {
-			playerThrustX++;
-		}
-		if (playerThrustY < THRUST_MAX) {
-			playerThrustY++;
-		}
+		playerThrust = 1 << (THRUST_BITS - 3);
 	} else if (buttonsHeld.down) {
-		if (playerThrustX > -(THRUST_MAX / 2)) {
-			playerThrustX--;
-		}
-		if (playerThrustY > -(THRUST_MAX / 2)) {
-			playerThrustY--;
-		}
+		playerThrust = -1 << (THRUST_BITS - 3);
 	} else {
-		if (playerThrustX < 0) {
-			playerThrustX++;
-		} else if (playerThrustX > 0) {
-			playerThrustX--;
-		}
-
-		if (playerThrustY < 0) {
-			playerThrustY++;
-		} else if (playerThrustY > 0) {
-			playerThrustY--;
-		}
+		playerThrust = 0;
 	}
 
 	if (buttonsHeld.fire && playerLaserTime==0) {
@@ -1077,39 +1072,37 @@ static void input3D(int dt)
 		playerLaserTime = LASER_TIME_MAX - 4 * power;
 	}
 
-	if (playerThrustX != 0) {
-		int tMov = (dt*playerMoveSpeed*playerThrustX) << (PPOS_BITS - THRUST_BITS);
-		int tMovX = (tMov * sinTab[playerAngle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+	int tMov = (dt*playerThrust) << (PPOS_BITS - THRUST_BITS);
+	playerVelocityX += (tMov * sinTab[playerAngle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+	playerVelocityY += (tMov * sinTab[(playerAngle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
 
-		pos->x -= tMovX;
-	}
+	CLAMP(playerVelocityX, (-MOVE_MAX << PPOS_BITS), (MOVE_MAX << PPOS_BITS));
+	CLAMP(playerVelocityY, (-MOVE_MAX << PPOS_BITS), (MOVE_MAX << PPOS_BITS));
 
+	pos->x -= playerVelocityX;
 	if (checkThingMapCollision(gt)) {
 		pos->x = prevPlayerPosX;
-		playerThrustX = -(playerThrustX * 12) >> 4;
+		playerVelocityX = -(playerVelocityX * 12) >> 4;
 		if (shield==0) damagePlayer(ENERGY_SCALER/2, MAX_HIT_BLINK/2);
 		playSound(SOUND_PLAYER_BOUNCE);
 	}
 
-	if (playerThrustY != 0) {
-		int tMov = (dt*playerMoveSpeed*playerThrustY) << (PPOS_BITS - THRUST_BITS);
-		int tMovY = (tMov * sinTab[(playerAngle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
-
-		pos->y += tMovY;
+	pos->y += playerVelocityY;
+	if (checkThingMapCollision(gt)) {
+		pos->y = prevPlayerPosY;
+		playerVelocityY = -(playerVelocityY * 12) >> 4;
+		if (shield==0) damagePlayer(ENERGY_SCALER/2, MAX_HIT_BLINK/2);
+		playSound(SOUND_PLAYER_BOUNCE);
 	}
 
-	if (playerThrustX != 0 || playerThrustY != 0) {
+	if (playerThrust != 0) {
 		Vec3 pos0 = Vec3(prevPlayerPosX, prevPlayerPosY, 0);
 		Vec3 vel0 = getVelocityFromAngle(getRand(0, SINTAB_SIZE-1), 2048);
 		spawnParticle(pos0, vel0, 32, 16);
 	}
 
-	if (checkThingMapCollision(gt)) {
-		pos->y = prevPlayerPosY;
-		playerThrustY = -(playerThrustY * 12) >> 4;
-		if (shield==0) damagePlayer(ENERGY_SCALER/2, MAX_HIT_BLINK/2);
-		playSound(SOUND_PLAYER_BOUNCE);
-	}
+	diminishForce(playerVelocityX);
+	diminishForce(playerVelocityY);
 }
 
 void gameInit()
@@ -1185,7 +1178,7 @@ void gameRun(Screen *screen, int t)
 	clearScreen(screen);
 
 	if (isInGame) {
-		input3D(t - t0);
+		inputNew(t - t0);
 		updateGameplay(t, t - t0);
 		updateScene3D(screen, t);
 		updateUI(screen, t);
