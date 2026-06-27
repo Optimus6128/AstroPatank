@@ -2,6 +2,8 @@
 #define GAME_H
 
 #include "types.h"
+#include "mesh.h"
+#include "vector.h"
 
 #ifndef __DJGPP__
 	#define SOUND_ON
@@ -23,12 +25,24 @@
 
 #define VRAM_PIXEL_OFFSET(x,y) ((y) * SCR_LINE_BYTES + (x))
 
+#define PPOS_BITS 8
 
 typedef struct Screen
 {
 	int width, height, bpp;
 	void *data;
-} Screen;
+}Screen;
+
+typedef struct GameThing
+{
+	Vec3 pos, rot, vel;
+	int size;
+	Mesh *mesh;
+	int spawn;
+	Vec3 spawnMeshScale;
+	bool alive;
+}GameThing;
+
 
 void gameInit();
 void gameRun(Screen *screen, int t);
@@ -38,5 +52,10 @@ void setGameQuit(bool quit);
 bool isGameQuit();
 
 void startGameMusic(int musIndex);
+
+void playerFire(Vec3 &pos, int angle);
+bool checkThingMapCollision(GameThing *gt);
+void spawnParticle(Vec3 &pos, Vec3 &vel, uint8 color, uint8 life);
+Vec3 getVelocityFromAngle(int angle, int scale);
 
 #endif

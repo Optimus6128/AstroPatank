@@ -5,10 +5,8 @@
 #include <string.h>
 #include <limits.h>
 
-#include "types.h"
-#include "mathutil.h"
-
 #include "game.h"
+
 #include "fonts.h"
 #include "menu.h"
 #include "tile_3d.h"
@@ -17,21 +15,17 @@
 #include "sound.h"
 #include "musplay.h"
 #include "mathutil.h"
-#include "vector.h"
 #include "engine.h"
 #include "render.h"
 #include "gfxtools.h"
-#include "mesh.h"
-
 #include "meshdata.h"
+#include "g_input.h"
 
 #define GROUND_Z (2048 + 512)
 #define MID_Z (3144 + 768)
 #define FAR_Z (4096 + 1024)
 #define MAP_OUT_Z (16384 + 2048)
 #define MAP_INDEX_SIZE 4
-
-#define PPOS_BITS 8
 
 
 #define PLAYER_THING_BASE 0
@@ -67,10 +61,6 @@
 #define SPAWN_FULL 64
 
 #define NUM_PARTICLES 256
-
-#define MOVE_MAX 64
-
-#define THRUST_BITS 6
 
 #define MAX_SHIELD 8
 #define MAX_ENERGY 8
@@ -109,17 +99,6 @@ static int winZoom = 0;
 
 PlayerHit playerHit = { false, 0, 0 };
 
-
-typedef struct GameThing
-{
-	Vec3 pos, rot, vel;
-	int size;
-	Mesh *mesh;
-	int spawn;
-	Vec3 spawnMeshScale;
-	bool alive;
-} GameThing;
-
 static GameThing thing[NUM_THINGS];
 
 
@@ -153,10 +132,6 @@ static Mesh *objectMesh[NUM_MESHES];
 static int objsInLayer[TILEMAP_LAYERS+1][NUM_THINGS];
 static int layerObjCount[TILEMAP_LAYERS+1];
 
-static int playerThrust = 0;
-static int playerAngleSpeed = 2;
-static int playerVelocityX = 0;
-static int playerVelocityY = 0;
 static int currentLaser = 0;
 static int playerLaserTime = 0;
 
@@ -175,7 +150,7 @@ static int getRandomAntiSpawn(int antiSpawnBase)
 	return -antiSpawnBase + getRand(-antiSpawnRange, antiSpawnRange);
 }
 
-static void spawnParticle(Vec3 &pos, Vec3 &vel, uint8 color, uint8 life)
+void spawnParticle(Vec3 &pos, Vec3 &vel, uint8 color, uint8 life)
 {
 	Particle *p = &particle[currParticleIndex];
 
@@ -185,17 +160,6 @@ static void spawnParticle(Vec3 &pos, Vec3 &vel, uint8 color, uint8 life)
 	p->life = life;
 
 	currParticleIndex = (currParticleIndex + 1) % NUM_PARTICLES;
-}
-
-static Vec3 getVelocityFromAngle(int angle, int scale)
-{
-	Vec3 vel;
-
-	vel.x = -(scale * sinTab[angle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
-	vel.y = (scale * sinTab[(angle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
-	vel.z = 0;
-
-	return vel;
 }
 
 static void damagePlayer(uint8 damage, uint8 warmUp)
@@ -224,7 +188,7 @@ static bool checkThingThingCollision(GameThing *gt1, GameThing *gt2)
 	return false;
 }
 
-static bool checkThingMapCollision(GameThing *gt)
+bool checkThingMapCollision(GameThing *gt)
 {
 	int posX = gt->pos.x >> PPOS_BITS;
 	int posY = gt->pos.y >> PPOS_BITS;
@@ -309,6 +273,17 @@ static void incRings()
 		gateOpened = true;
 	}
 	mustUpdateRings = true;
+}
+
+Vec3 getVelocityFromAngle(int angle, int scale)
+{
+	Vec3 vel;
+
+	vel.x = -(scale * sinTab[angle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+	vel.y = (scale * sinTab[(angle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
+	vel.z = 0;
+
+	return vel;
 }
 
 static void spawnParticleMiniExplosion(Vec3 &pos, int numParticles, uint8 color, uint8 life, int velMul = 1)
@@ -558,9 +533,7 @@ static void updateSpawning()
 						playerHit.justHit = false;
 						playerHit.damage = 0;
 						playerHit.warmUp = 0;
-						playerVelocityX = 0;
-						playerVelocityY = 0;
-						playerThrust = 0;
+						resetInput1();
 					} else {
 						lives = 0;
 						gt->alive = false;
@@ -600,6 +573,29 @@ static void spawnLaser(Vec3 &pos, Vec3 &rot, Vec3 &vel)
 	currentLaser = (currentLaser + 1) % MAX_LASERS;
 
 	playSound(SOUND_FIRE);
+
+	playerLaserTime = LASER_TIME_MAX - 4 * power;
+}
+
+void playerFire(Vec3 &pos, int angle)
+{
+	if (playerLaserTime!=0) return;
+
+	Vec3 bPos;
+	Vec3 bVel;
+	Vec3 bRot;
+
+	bVel = getVelocityFromAngle(angle, 80 << PPOS_BITS);
+
+	bPos.x = pos.x + bVel.x;
+	bPos.y = pos.y + bVel.y;
+	bPos.z = pos.z;
+
+	bRot.x = SINTAB_SIZE >> 2;
+	bRot.y = angle;
+	bRot.z = 0;
+
+	spawnLaser(bPos, bRot, bVel);
 }
 
 static void initPlayerThing()
@@ -828,22 +824,22 @@ static void updateUI(Screen *screen, int t)
 	drawBar(1,1,9,energy, vram);
 	drawBar(1,2,10,shield, vram);
 
-	//if (mustUpdateLives) {
-		sprintf(txtLives, "Lives: %d\n", playerVelocityX);
+	if (mustUpdateLives) {
+		sprintf(txtLives, "Lives: %d\n", lives);
 		mustUpdateLives = false;
-	//}
-	drawText(SCR_W - 176, 8, txtLives, 64, 0, vram);
+	}
+	drawText(SCR_W - 76, 8, txtLives, 64, 0, vram);
 
-	//if (mustUpdatePower) {
-		sprintf(txtPower, "Power: %d\n", playerVelocityY);
+	if (mustUpdatePower) {
+		sprintf(txtPower, "Power: %d\n", power);
 		mustUpdatePower = false;
-	//}
-	drawText(SCR_W - 176, 24, txtPower, 112, 0, vram);
+	}
+	drawText(SCR_W - 76, 24, txtPower, 112, 0, vram);
 
-	//if (mustUpdateScore) {
-		sprintf(txtScore, "Score: %d\n", playerThrust);
+	if (mustUpdateScore) {
+		sprintf(txtScore, "Score: %d\n", score);
 		mustUpdateScore = false;
-	//}
+	}
 	drawText(8, SCR_H - 12, txtScore, 32, 0, vram);
 
 	if (mustUpdateRings) {
@@ -939,9 +935,7 @@ static void restartGameIfEnded()
 	playerHit.justHit = false;
 	playerHit.damage = 0;
 	playerHit.warmUp = 0;
-	playerThrust = 0;
-	playerVelocityX = 0;
-	playerVelocityY = 0;
+	resetInput1();
 
 	initThings();
 }
@@ -983,20 +977,7 @@ void setIsInGame(bool inGame)
 	}
 }
 
-static void diminishForce(int &force)
-{
-	int threshold = 2*MOVE_MAX;
-
-	if (force < -threshold) {
-		force += threshold;
-	} else if (force > threshold) {
-		force -= threshold;
-	} else {
-		force = 0;
-	}
-}
-
-static void inputNew(int dt)
+static void updateGameInput(int dt)
 {
 	static bool rMapPressed = false;
 
@@ -1016,93 +997,13 @@ static void inputNew(int dt)
 
 	rMapPressed = buttonsHeld.map;
 
-
 	GameThing *gt = &thing[PLAYER_THING_BASE];
 	if (!gt->alive || youWarp) return;
 
-	Vec3 *pos = &gt->pos;
-	Vec3 *rot = &gt->rot;
-
-	int prevPlayerPosX = pos->x;
-	int prevPlayerPosY = pos->y;
-
-	int tAng = (dt*playerAngleSpeed) << PPOS_BITS;
-
-	int playerAngle = gt->rot.y;
-	int pAngle = playerAngle << PPOS_BITS;
-
-	if (buttonsHeld.down) {
-		tAng = -tAng;
-	}
-	
-	if (buttonsHeld.left) {
-		pAngle += tAng;
-	}
-	if (buttonsHeld.right) {
-		pAngle -= tAng;
-	}
-	playerAngle = pAngle >> PPOS_BITS;
-	gt->rot.y = playerAngle;
-
-	if (buttonsHeld.up) {
-		playerThrust = 1 << (THRUST_BITS - 3);
-	} else if (buttonsHeld.down) {
-		playerThrust = -1 << (THRUST_BITS - 3);
-	} else {
-		playerThrust = 0;
-	}
-
-	if (buttonsHeld.fire && playerLaserTime==0) {
-		Vec3 bPos;
-		Vec3 bVel;
-		Vec3 bRot;
-
-		bVel = getVelocityFromAngle(playerAngle, 80 << PPOS_BITS);
-
-		bPos.x = pos->x + bVel.x;
-		bPos.y = pos->y + bVel.y;
-		bPos.z = pos->z;
-
-		bRot.x = SINTAB_SIZE >> 2;
-		bRot.y = playerAngle;
-		bRot.z = 0;
-
-		spawnLaser(bPos, bRot, bVel);
-
-		playerLaserTime = LASER_TIME_MAX - 4 * power;
-	}
-
-	int tMov = (dt*playerThrust) << (PPOS_BITS - THRUST_BITS);
-	playerVelocityX += (tMov * sinTab[playerAngle & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
-	playerVelocityY += (tMov * sinTab[(playerAngle - (SINTAB_SIZE / 4)) & (SINTAB_SIZE - 1)]) >> AMPLITUDE_BITS;
-
-	CLAMP(playerVelocityX, (-MOVE_MAX << PPOS_BITS), (MOVE_MAX << PPOS_BITS));
-	CLAMP(playerVelocityY, (-MOVE_MAX << PPOS_BITS), (MOVE_MAX << PPOS_BITS));
-
-	pos->x -= playerVelocityX;
-	if (checkThingMapCollision(gt)) {
-		pos->x = prevPlayerPosX;
-		playerVelocityX = -(playerVelocityX * 12) >> 4;
+	if (updateInputType1(gt, dt)) {
 		if (shield==0) damagePlayer(ENERGY_SCALER/2, MAX_HIT_BLINK/2);
 		playSound(SOUND_PLAYER_BOUNCE);
 	}
-
-	pos->y += playerVelocityY;
-	if (checkThingMapCollision(gt)) {
-		pos->y = prevPlayerPosY;
-		playerVelocityY = -(playerVelocityY * 12) >> 4;
-		if (shield==0) damagePlayer(ENERGY_SCALER/2, MAX_HIT_BLINK/2);
-		playSound(SOUND_PLAYER_BOUNCE);
-	}
-
-	if (playerThrust != 0) {
-		Vec3 pos0 = Vec3(prevPlayerPosX, prevPlayerPosY, 0);
-		Vec3 vel0 = getVelocityFromAngle(getRand(0, SINTAB_SIZE-1), 2048);
-		spawnParticle(pos0, vel0, 32, 16);
-	}
-
-	diminishForce(playerVelocityX);
-	diminishForce(playerVelocityY);
 }
 
 void gameInit()
@@ -1178,7 +1079,7 @@ void gameRun(Screen *screen, int t)
 	clearScreen(screen);
 
 	if (isInGame) {
-		inputNew(t - t0);
+		updateGameInput(t - t0);
 		updateGameplay(t, t - t0);
 		updateScene3D(screen, t);
 		updateUI(screen, t);
