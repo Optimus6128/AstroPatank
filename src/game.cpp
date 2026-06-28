@@ -7,19 +7,26 @@
 
 #include "game.h"
 
-#include "fonts.h"
-#include "menu.h"
-#include "tile_3d.h"
-#include "video.h"
 #include "input.h"
 #include "sound.h"
+#include "video.h"
 #include "musplay.h"
+#include "gfxtools.h"
+
+#include "fonts.h"
 #include "mathutil.h"
+#include "menu.h"
+#include "tile_3d.h"
+#include "vector.h"
+
+
 #include "engine.h"
 #include "render.h"
-#include "gfxtools.h"
+#include "mesh.h"
 #include "meshdata.h"
 #include "g_input.h"
+
+
 
 #define GROUND_Z (2048 + 512)
 #define MID_Z (3144 + 768)
@@ -80,6 +87,33 @@ typedef struct PlayerHit
 	uint8 warmUp;
 } PlayerHit;
 
+
+
+
+typedef struct Particle
+{
+	Vec3 pos, vel;
+	uint8 life, color;
+} Particle;
+
+
+enum {
+	OBJ_TRIPOD, 
+	OBJ_UFO, OBJ_UFO2,
+	OBJ_GLENZ, OBJ_DRUM, OBJ_CROSS,
+	OBJ_SPACESHIP,
+	OBJ_TORUS, OBJ_CUBESTAR,
+	OBJ_ROMBUS_RING, OBJ_EIGHT_CUBES,
+	OBJ_LASER,
+	NUM_MESHES
+};
+
+static int8 *objMeshData[NUM_MESHES] =	{ 	objTripodData, objUfoData, objUfo2Data, objGlenzData, objDrumData, objSquareCrossData, 
+											objSpaceship1Data, objTorusData, objCubeStarData, objRombusRingData, objEightCubesData, objLaserData
+										};
+
+static Mesh *objectMesh[NUM_MESHES];
+
 static bool mustUpdateScore = true;
 static bool mustUpdateRings = true;
 static bool mustUpdateLives = true;
@@ -99,37 +133,11 @@ static int winZoom = 0;
 
 static int playerMoveType = INPUT_MOVE_CAR;
 
-PlayerHit playerHit = { false, 0, 0 };
+static PlayerHit playerHit = { false, 0, 0 };
 
 static GameThing thing[NUM_THINGS];
-
-
-typedef struct Particle
-{
-	Vec3 pos, vel;
-	uint8 life, color;
-} Particle;
-
 static Particle particle[NUM_PARTICLES];
 static uint32 currParticleIndex = 0;
-
-
-enum {
-	OBJ_TRIPOD, 
-	OBJ_UFO, OBJ_UFO2,
-	OBJ_GLENZ, OBJ_DRUM, OBJ_CROSS,
-	OBJ_SPACESHIP,
-	OBJ_TORUS, OBJ_CUBESTAR,
-	OBJ_ROMBUS_RING, OBJ_EIGHT_CUBES,
-	OBJ_LASER,
-	NUM_MESHES
-};
-
-static int8 *objMeshData[NUM_MESHES] =	{ 	objTripodData, objUfoData, objUfo2Data, objGlenzData, objDrumData, objSquareCrossData, 
-											objSpaceship1Data, objTorusData, objCubeStarData, objRombusRingData, objEightCubesData, objLaserData
-										};
-
-static Mesh *objectMesh[NUM_MESHES];
 
 static int objsInLayer[TILEMAP_LAYERS+1][NUM_THINGS];
 static int layerObjCount[TILEMAP_LAYERS+1];
@@ -553,7 +561,7 @@ static void updateSpawning()
 }
 
 
-static void updateGameplay(int t, int dt)
+static void updateGameplay()
 {
 	updateSpawning();
 	updateNarcs();
@@ -775,7 +783,7 @@ static void renderParticles(uint8 *vram)
 	}
 }
 
-static void updateScene3D(Screen *screen, int t)
+static void updateScene3D(Screen *screen)
 {
 	Mesh *ms;
 
@@ -864,22 +872,7 @@ static void updateUI(Screen *screen, int t)
 static void clearScreen(Screen *screen)
 {
 	const int screenSize = (screen->width * screen->height * screen->bpp) >> (3 + UNCHAINED_BITS);
-	//#ifndef __DJGPP__
-		memset(screen->data, 0, screenSize);
-	/*#else
-		int count = screenSize >> (2 + 3);	// to unroll it 8 times
-		uint32 *dst32 = (uint32*)screen->data;
-		do {
-			*dst32++ = 0;
-			*dst32++ = 0;
-			*dst32++ = 0;
-			*dst32++ = 0;
-			*dst32++ = 0;
-			*dst32++ = 0;
-			*dst32++ = 0;
-			*dst32++ = 0;
-		} while(--count >= 0);
-	#endif*/
+	memset(screen->data, 0, screenSize);
 }
 
 //#define SHOW_PALETTE
@@ -894,7 +887,7 @@ static void drawPalette(uint8 *vram)
 	}
 }
 
-static void initSoundsBpr()
+static void initSoundFx()
 {
 	setupSound(16, 128, 4096, SOUND_FIRE);
 
@@ -1008,6 +1001,29 @@ static void updateGameInput(int dt)
 	}
 }
 
+void gameRun(Screen *screen, int t)
+{
+	static int t0 = 0;
+
+	clearScreen(screen);
+
+	if (isInGame) {
+		updateGameInput(t - t0);
+		updateGameplay();
+		updateScene3D(screen);
+		updateUI(screen, t);
+	} else {
+		menuRun(screen, t);
+	}
+	
+#ifdef SHOW_PALETTE
+	drawPalette((uint8*)screen->data);
+#endif
+
+	t0 = t;
+}
+
+
 void gameInit()
 {
 	initEngine();
@@ -1069,29 +1085,8 @@ void gameInit()
 
 	menuInit();
 
-	initSoundsBpr();
+	initSoundFx();
 
 	switchGameMusic();
 }
 
-void gameRun(Screen *screen, int t)
-{
-	static int t0 = 0;
-
-	clearScreen(screen);
-
-	if (isInGame) {
-		updateGameInput(t - t0);
-		updateGameplay(t, t - t0);
-		updateScene3D(screen, t);
-		updateUI(screen, t);
-	} else {
-		menuRun(screen, t);
-	}
-	
-#ifdef SHOW_PALETTE
-	drawPalette((uint8*)screen->data);
-#endif
-
-	t0 = t;
-}
