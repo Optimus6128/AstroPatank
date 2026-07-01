@@ -10,6 +10,7 @@
 #include "video.h"
 #include "timer.h"
 #include "input.h"
+#include "joy.h"
 #include "sound.h"
 #include "musplay.h"
 #include "tinyfont.h"
@@ -57,6 +58,7 @@ static void initSystem()
 
 	initTimer();
 	initKeyboard();
+	joy_detect();
 
 	initVideoModeInfo();
 
@@ -143,6 +145,10 @@ int main(int argc, char **argv)
 	#endif
 	
 	while(!isGameQuit()) {
+		if(have_joy) {
+			joy_update();
+			joy_keyemu();
+		}
 		screen.data = getRenderBuffer(video);
 		gameRun(&screen, getTime());
 		if (buttonsHeld.select | !vsync) drawFps(video);
