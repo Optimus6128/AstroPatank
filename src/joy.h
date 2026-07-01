@@ -22,7 +22,7 @@ extern int16_t joy_pos[2];
 
 int joy_detect(void);
 void joy_update(void);
-void joy_keyemu(void);
+void joy_keyemu(bool isInGame);
 
 #ifdef MSDOS
 extern int cal_min[2], cal_cent[2], cal_max[2];

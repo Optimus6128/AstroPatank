@@ -76,8 +76,7 @@ void joy_update(void)
 	joy_bnpress = joy_bnstate & joy_bndiff;
 }
 
-
-void joy_keyemu(void)
+void joy_keyemu(bool isInGame)
 {
 	if(!have_joy) {
 		return;	/* no joy ... */
@@ -90,21 +89,28 @@ void joy_keyemu(void)
 	if(joy_bndiff & JOY_RIGHT) {
 		buttonsHeld.right = joy_bnpress & JOY_RIGHT;
 	}
-	if(joy_bndiff & JOY_UP) {
-		buttonsHeld.up = joy_bnpress & JOY_UP;
-	}
-	if(joy_bndiff & JOY_DOWN) {
-		buttonsHeld.down = joy_bnpress & JOY_DOWN;
+	if (!isInGame) {
+		if(joy_bndiff & JOY_UP) {
+			buttonsHeld.up = joy_bnpress & JOY_UP;
+		}
+		if(joy_bndiff & JOY_DOWN) {
+			buttonsHeld.down = joy_bnpress & JOY_DOWN;
+		}
+	} else {
+		if(joy_bndiff & JOY_BN1) {
+			buttonsHeld.down = joy_bnpress & JOY_BN1;
+		}
+		if(joy_bndiff & JOY_BN2) {
+			buttonsHeld.up = joy_bnpress & JOY_BN2;
+		}
+		if(joy_bndiff & JOY_BN3) {
+			buttonsHeld.map = joy_bnpress & JOY_BN3;
+		}
 	}
 	if(joy_bndiff & JOY_BN0) {
 		buttonsHeld.fire = joy_bnpress & JOY_BN0;
 	}
-	if(joy_bndiff & JOY_BN1) {
-		buttonsHeld.map = joy_bnpress & JOY_BN1;
-	}
-	if(joy_bndiff & JOY_BN2) {
-		buttonsHeld.escape = joy_bnpress & JOY_BN2;
-	}
+
 	_enable();
 }
 

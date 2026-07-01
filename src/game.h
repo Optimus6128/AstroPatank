@@ -48,6 +48,7 @@ void gameInit();
 void gameRun(Screen *screen, int t);
 
 void setIsInGame(bool inGame);
+bool getIsInGame();
 void setGameQuit(bool quit);
 bool isGameQuit();
 

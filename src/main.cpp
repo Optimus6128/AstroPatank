@@ -147,7 +147,7 @@ int main(int argc, char **argv)
 	while(!isGameQuit()) {
 		if(have_joy) {
 			joy_update();
-			joy_keyemu();
+			joy_keyemu(getIsInGame());
 		}
 		screen.data = getRenderBuffer(video);
 		gameRun(&screen, getTime());

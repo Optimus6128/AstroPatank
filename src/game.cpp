@@ -972,6 +972,11 @@ void setIsInGame(bool inGame)
 	}
 }
 
+bool getIsInGame()
+{
+	return isInGame;
+}
+
 static void updateGameInput(int dt)
 {
 	static bool rMapPressed = false;
