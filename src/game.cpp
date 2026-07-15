@@ -24,6 +24,7 @@
 #include "render.h"
 #include "mesh.h"
 #include "meshdata.h"
+#include "particle.h"
 #include "g_input.h"
 
 
@@ -67,8 +68,6 @@
 #define ANTI_SPAWN_WEAPON 1024
 #define SPAWN_FULL 64
 
-#define NUM_PARTICLES 256
-
 #define MAX_SHIELD 8
 #define MAX_ENERGY 8
 #define MAX_HIT_BLINK 64
@@ -86,15 +85,6 @@ typedef struct PlayerHit
 	uint8 damage;
 	uint8 warmUp;
 } PlayerHit;
-
-
-
-
-typedef struct Particle
-{
-	Vec3 pos, vel;
-	uint8 life, color;
-} Particle;
 
 
 enum {
@@ -136,8 +126,6 @@ static int playerMoveType = INPUT_MOVE_CAR;
 static PlayerHit playerHit = { false, 0, 0 };
 
 static GameThing thing[NUM_THINGS];
-static Particle particle[NUM_PARTICLES];
-static uint32 currParticleIndex = 0;
 
 static int objsInLayer[TILEMAP_LAYERS+1][NUM_THINGS];
 static int layerObjCount[TILEMAP_LAYERS+1];
@@ -158,18 +146,6 @@ static int getRandomAntiSpawn(int antiSpawnBase)
 {
 	int antiSpawnRange = antiSpawnBase >> 2;
 	return -antiSpawnBase + getRand(-antiSpawnRange, antiSpawnRange);
-}
-
-void spawnParticle(Vec3 &pos, Vec3 &vel, uint8 color, uint8 life)
-{
-	Particle *p = &particle[currParticleIndex];
-
-	p->pos = pos;
-	p->vel = vel;
-	p->color = color;
-	p->life = life;
-
-	currParticleIndex = (currParticleIndex + 1) % NUM_PARTICLES;
 }
 
 static void damagePlayer(uint8 damage, uint8 warmUp)
@@ -363,18 +339,6 @@ static void updateLasers()
 	if (playerLaserTime > 0) playerLaserTime--;
 }
 
-static void updateParticles()
-{
-	for (int i=0; i<NUM_PARTICLES; ++i) {
-		Particle *p = &particle[i];
-
-		if (p->life != 0) {
-			p->pos += p->vel;
-			p->life--;
-		}
-	}
-}
-
 static void updatePlayerHit()
 {
 	GameThing *gtPlayer = &thing[PLAYER_THING_BASE];
@@ -397,7 +361,7 @@ static void updatePlayerHit()
 
 	if (energy==0) {
 		if (gtPlayer->alive) {
-			spawnParticleMiniExplosion(gtPlayer->pos, NUM_PARTICLES, 96, 80, 3);
+			spawnParticleMiniExplosion(gtPlayer->pos, MAX_PARTICLES, 96, 80, 3);
 			playSound(SOUND_PLAYER_DEAD);
 			gtPlayer->alive = false;
 			if (lives > 1) {
@@ -761,34 +725,13 @@ static void updateThingsLayerLists()
 	}
 }
 
-static void renderParticles(uint8 *vram)
-{
-	int offX = -thing[PLAYER_THING_BASE].pos.x;
-	int offY = -thing[PLAYER_THING_BASE].pos.y;
-
-	for (int i=0; i<NUM_PARTICLES; ++i) {
-		Particle *p = &particle[i];
-
-		if (p->life != 0) {
-			Vec3 *pos = &p->pos;
-			int sx = ((SCR_W/2) << PPOS_BITS) + (((offX + pos->x) << (SCR_BITS + PROJ_BITS - PPOS_BITS)) / centeredViewPos.z);
-			int sy = ((SCR_H/2) << PPOS_BITS) + (((offY + pos->y) << (SCR_BITS + PROJ_BITS - PPOS_BITS)) / centeredViewPos.z);
-
-			if (sx >= 0 && sx < ((SCR_W-1) << SCR_BITS) && sy >= 0 && sy < ((SCR_H-1) << SCR_BITS)) {
-				int alphaShade = 8 * p->life;
-				if (alphaShade > SHADE_ALPHA_MAX) alphaShade = SHADE_ALPHA_MAX;
-				renderAntialiasedDot(sx, sy, p->color, alphaShade, vram);
-			}
-		}
-	}
-}
-
 static void updateScene3D(Screen *screen)
 {
-	Mesh *ms;
+	const int playerPosX = thing[PLAYER_THING_BASE].pos.x;
+	const int playerPosY = thing[PLAYER_THING_BASE].pos.y;
 
-	centeredViewPos.x = thing[PLAYER_THING_BASE].pos.x >> PPOS_BITS;
-	centeredViewPos.y = thing[PLAYER_THING_BASE].pos.y >> PPOS_BITS;
+	centeredViewPos.x = playerPosX >> PPOS_BITS;
+	centeredViewPos.y = playerPosY >> PPOS_BITS;
 
 	updateThingsLayerLists();
 
@@ -797,7 +740,7 @@ static void updateScene3D(Screen *screen)
 			renderTilemap3dLayer(&centeredViewPos, n, screen, gateOpened);
 		}
 
-		if (n==0) renderParticles((uint8*)screen->data);
+		if (n==0) renderParticles(-playerPosX, -playerPosY, centeredViewPos.z, (uint8*)screen->data);
 
 		const int layerCount = layerObjCount[n];
 		int *layerSrc = objsInLayer[n];
