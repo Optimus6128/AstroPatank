@@ -35,6 +35,7 @@
 #define MAP_OUT_Z (16384 + 2048)
 #define MAP_INDEX_SIZE 4
 
+#define DT_BITS 4
 
 #define PLAYER_THING_BASE 0
 #define NUM_PLAYERS 1
@@ -86,7 +87,6 @@ typedef struct PlayerHit
 	uint8 warmUp;
 } PlayerHit;
 
-
 enum {
 	OBJ_TRIPOD, 
 	OBJ_UFO, OBJ_UFO2,
@@ -101,8 +101,8 @@ enum {
 static int8 *objMeshData[NUM_MESHES] =	{ 	objTripodData, objUfoData, objUfo2Data, objGlenzData, objDrumData, objSquareCrossData, 
 											objSpaceship1Data, objTorusData, objCubeStarData, objRombusRingData, objEightCubesData, objLaserData
 										};
-
 static Mesh *objectMesh[NUM_MESHES];
+
 
 static bool mustUpdateScore = true;
 static bool mustUpdateRings = true;
@@ -136,6 +136,7 @@ static int playerLaserTime = 0;
 static Vec3 centeredViewPos;
 
 static int mapZ[] = { GROUND_Z, MID_Z, FAR_Z, MAP_OUT_Z };
+static int tileZ[MAP_INDEX_SIZE];
 static uint8 mapIndex = 1;
 
 static bool isInGame = false;
@@ -213,7 +214,7 @@ static bool checkPlayerGateCollision()
 	return (posX == TILEMAP_WIDTH / 2) && (posY == TILEMAP_HEIGHT / 2);
 }
 
-static void updateNarcs()
+static void updateNarcs(int dt)
 {
 	GameThing *gtPlayer = &thing[PLAYER_THING_BASE];
 
@@ -223,21 +224,20 @@ static void updateNarcs()
 			int prevPosX = gt->pos.x;
 			int prevPosY = gt->pos.y;
 
-			gt->pos.x += gt->vel.x;
+			gt->pos.x += (gt->vel.x * dt) >> 4;
 			if (checkThingMapCollision(gt)) {
 				gt->pos.x = prevPosX;
 				gt->vel.x = -gt->vel.x;
 			}
 
-			gt->pos.y += gt->vel.y;
+			gt->pos.y += (gt->vel.y * dt) >> 4;
 			if (checkThingMapCollision(gt)) {
 				gt->pos.y = prevPosY;
 				gt->vel.y = -gt->vel.y;
 			}
 
-			gt->rot.x += (((i & 3) + 1) << 4);
-			gt->rot.y += (((i & 7) + 1) << 3);
-			gt->rot.z += ((i & 15) << 2);
+			gt->rot.x += ((((i & 3) + 1) << 4) * dt) >> 4;
+			gt->rot.y += ((((i & 7) + 1) << 3) * dt) >> 4;
 
 			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
 				damagePlayer(ENERGY_SCALER, MAX_HIT_BLINK);
@@ -321,12 +321,13 @@ static void laserAgainstEnemies(GameThing *gtLaser)
 	}
 }
 
-static void updateLasers()
+static void updateLasers(int dt)
 {
 	for (int i = 0; i < MAX_LASERS; ++i) {
 		GameThing *gt = &thing[LASER_THING_BASE + i];
 		if (gt->alive) {
-			gt->pos += gt->vel;
+			gt->pos.x += (gt->vel.x * dt) >> 4;
+			gt->pos.y += (gt->vel.y * dt) >> 4;
 			if (checkThingMapCollision(gt)) {
 				spawnParticleMiniExplosion(gt->pos, 16, 96, 32);
 				gt->alive = false;
@@ -336,7 +337,11 @@ static void updateLasers()
 		}
 	}
 
-	if (playerLaserTime > 0) playerLaserTime--;
+	if (playerLaserTime > 0) {
+		playerLaserTime -= dt;
+	} else {
+		playerLaserTime = 0;
+	}
 }
 
 static void updatePlayerHit()
@@ -405,16 +410,18 @@ static void updatePlayerHit()
 	}
 }
 
-static void updateItems()
+static void updateItems(int dt)
 {
-	static Vec3 rotVel = Vec3(10, 12, 8);
+	int tx = dt;
+	int ty = dt + (dt >> 1);
 
 	GameThing *gtPlayer = &thing[PLAYER_THING_BASE];
 
 	for (int i=0; i<MAX_ENERGY_BONUS; ++i) {
 		GameThing *gt = &thing[ENERGY_BONUS_THING_BASE + i];
 		if (gt->alive) {
-			gt->rot += rotVel;
+			gt->rot.x += tx;
+			gt->rot.y += ty;
 			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
 				if (energy < MAX_ENERGY * ENERGY_SCALER) {
 					energy += 2 * ENERGY_SCALER;
@@ -430,7 +437,8 @@ static void updateItems()
 	for (int i=0; i<MAX_SHIELD_BONUS; ++i) {
 		GameThing *gt = &thing[SHIELD_BONUS_THING_BASE + i];
 		if (gt->alive) {
-			gt->rot += rotVel;
+			gt->rot.x += tx;
+			gt->rot.y += ty;
 			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
 				if (shield < MAX_SHIELD * ENERGY_SCALER) {
 					shield += 4 * ENERGY_SCALER;
@@ -446,7 +454,8 @@ static void updateItems()
 	for (int i=0; i<MAX_WEAPON_BONUS; ++i) {
 		GameThing *gt = &thing[WEAPON_BONUS_THING_BASE + i];
 		if (gt->alive) {
-			gt->rot += rotVel;
+			gt->rot.x += tx;
+			gt->rot.y += ty;
 			if (power < 3 && gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
 				power++;
 				mustUpdatePower = true;
@@ -461,7 +470,8 @@ static void updateItems()
 	for (int i=0; i<MAX_RING_BONUS; ++i) {
 		GameThing *gt = &thing[RING_BONUS_THING_BASE + i];
 		if (gt->alive) {
-			gt->rot += rotVel;
+			gt->rot.x += tx;
+			gt->rot.y += ty;
 			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
 				gt->alive = false;
 				gt->spawn = getRandomAntiSpawn(ANTI_SPAWN_RING);
@@ -528,9 +538,9 @@ static void updateSpawning()
 static void updateGameplay(int dt)
 {
 	updateSpawning();
-	updateNarcs();
-	updateItems();
-	updateLasers();
+	updateNarcs(dt);
+	updateItems(dt);
+	updateLasers(dt);
 	updateParticles();
 	updatePlayerHit();
 }
@@ -548,7 +558,7 @@ static void spawnLaser(Vec3 &pos, Vec3 &rot, Vec3 &vel)
 
 	playSound(SOUND_FIRE);
 
-	playerLaserTime = LASER_TIME_MAX - 4 * power;
+	playerLaserTime = (LASER_TIME_MAX - 4 * power) << DT_BITS;
 }
 
 void playerFire(Vec3 &pos, int angle)
@@ -601,6 +611,54 @@ static void setRandomThingInMap(GameThing *gt, Mesh *mesh, uint8 layer, int spaw
 	if (moving) setRandomThingVelocity(gt);
 }
 
+static void initMeshes()
+{
+	for (int i = 0; i < NUM_MESHES; ++i) {
+
+		objectMesh[i] = initMeshFromCPCdata(objMeshData[i]);
+
+		int gridScaleMulX = 40;
+		int gridScaleMulY = 40;
+		int gridScaleMulZ = 40;
+		if (i == OBJ_LASER) {
+			gridScaleMulX = 16;
+			gridScaleMulY = 16;
+			gridScaleMulZ = 32;
+		}
+		if (i == OBJ_DRUM) {
+			gridScaleMulX = 28;
+			gridScaleMulY = 24;
+			gridScaleMulZ = 28;
+			uint8* cols = objectMesh[i]->polyColor;
+			for (int n = 0; n < objectMesh[i]->numPolys; ++n) {
+				cols[n] += 4;
+				if (cols[n] > 6) cols[n] = 10;
+			}
+		}
+
+		if (i == OBJ_CROSS) {
+			gridScaleMulX = 32;
+			gridScaleMulY = 32;
+			gridScaleMulZ = 32;
+			uint8* cols = objectMesh[i]->polyColor;
+			for (int n = 0; n < objectMesh[i]->numPolys; ++n) {
+				cols[n] += 4;
+				if (cols[n] > 6) cols[n] = 9;
+			}
+		}
+
+		if (i == OBJ_ROMBUS_RING) {
+			uint8* cols = objectMesh[i]->polyColor;
+			for (int n = 0; n < objectMesh[i]->numPolys; ++n) {
+				cols[n] += 6;
+			}
+		}
+
+		objectMesh[i]->gridScaleX = (objectMesh[i]->gridScaleX * gridScaleMulX) >> 8;
+		objectMesh[i]->gridScaleY = (objectMesh[i]->gridScaleY * gridScaleMulY) >> 8;
+		objectMesh[i]->gridScaleZ = (objectMesh[i]->gridScaleZ * gridScaleMulZ) >> 8;
+	}
+}
 
 static void initThings()
 {
@@ -688,8 +746,10 @@ static void renderObject(int i, Screen *screen)
 	ms->pos.y = centeredViewPos.y - (gt->pos.y >> PPOS_BITS);
 	ms->pos.z = centeredViewPos.z - (gt->pos.z >> PPOS_BITS);
 
-	int edgeX = ((SCR_W/2 + TILE_SIZE / 2) * ms->pos.z) >> PROJ_BITS;
-	int edgeY = ((SCR_H/2 + TILE_SIZE / 2) * ms->pos.z) >> PROJ_BITS;
+	int edgeTileHalf = tileZ[mapIndex] >> 1;
+
+	int edgeX = ((SCR_W/2 + edgeTileHalf) * ms->pos.z) >> PROJ_BITS;
+	int edgeY = ((SCR_H/2 + edgeTileHalf) * ms->pos.z) >> PROJ_BITS;
 	if (ms->pos.x < -edgeX || ms->pos.x > edgeX || 
 		ms->pos.y < -edgeY || ms->pos.y > edgeY) return;
 
@@ -802,13 +862,13 @@ static void updateUI(Screen *screen, int t)
 	drawText(SCR_W - 76, SCR_H - 12, txtRings, 48, 0, vram);
 
 	if (gameOver) {
-		drawText(16, 88, "GAME OVER", 32 + (((sinTab[t & (SINTAB_SIZE - 1)] * 32) >> AMPLITUDE_BITS)), 2, vram);
+		drawText(16, SCR_H / 2 - (2 * 8), "GAME OVER", 32 + (((sinTab[t & (SINTAB_SIZE - 1)] * 32) >> AMPLITUDE_BITS)), 2, vram);
 	} else if (youWin) {
-		drawText(32, 88, "YOU WIN!", 64 + (((sinTab[t & (SINTAB_SIZE - 1)] * 32) >> AMPLITUDE_BITS)), 2, vram);
+		drawText(32, SCR_H / 2 - (2 * 8), "YOU WIN!", 64 + (((sinTab[t & (SINTAB_SIZE - 1)] * 32) >> AMPLITUDE_BITS)), 2, vram);
 	}
 
 	if (!youWarp && gateOpened) {
-		drawText(92, 172, "GATE OPEN", 94 + (((sinTab[(6*t) & (SINTAB_SIZE - 1)] * 3) >> AMPLITUDE_BITS)), 1, vram);
+		drawText(88, SCR_H - (2 * 14), "GATE OPEN", 94 + (((sinTab[(6*t) & (SINTAB_SIZE - 1)] * 3) >> AMPLITUDE_BITS)), 1, vram);
 	}
 }
 
@@ -972,57 +1032,22 @@ void gameRun(Screen *screen, int t)
 	t0 = t;
 }
 
+static void initValuesMapZ()
+{
+	for (int i = 0; i < MAP_INDEX_SIZE; ++i) {
+		tileZ[i] = (TILE_SIZE << PROJ_BITS) / mapZ[i];
+	}
+
+	centeredViewPos.z = mapZ[mapIndex];
+}
 
 void gameInit()
 {
 	initEngine();
 
-	for (int i=0; i<NUM_MESHES; ++i) {
-		objectMesh[i] = initMeshFromCPCdata(objMeshData[i]);
+	initMeshes();
 
-		int gridScaleMulX = 40;
-		int gridScaleMulY = 40;
-		int gridScaleMulZ = 40;
-		if (i==OBJ_LASER) {
-			gridScaleMulX = 16;
-			gridScaleMulY = 16;
-			gridScaleMulZ = 32;
-		}
-		if (i==OBJ_DRUM) {
-			gridScaleMulX = 28;
-			gridScaleMulY = 24;
-			gridScaleMulZ = 28;
-			uint8 *cols = objectMesh[i]->polyColor;			
-			for (int n=0; n<objectMesh[i]->numPolys; ++n) {
-				cols[n] += 4;
-				if (cols[n] > 6) cols[n] = 10;
-			}
-		}
-
-		if (i==OBJ_CROSS) {
-			gridScaleMulX = 32;
-			gridScaleMulY = 32;
-			gridScaleMulZ = 32;
-			uint8 *cols = objectMesh[i]->polyColor;			
-			for (int n=0; n<objectMesh[i]->numPolys; ++n) {
-				cols[n] += 4;
-				if (cols[n] > 6) cols[n] = 9;
-			}
-		}
-
-		if (i==OBJ_ROMBUS_RING) {
-			uint8 *cols = objectMesh[i]->polyColor;			
-			for (int n=0; n<objectMesh[i]->numPolys; ++n) {
-				cols[n] += 6;
-			}
-		}
-
-		objectMesh[i]->gridScaleX = (objectMesh[i]->gridScaleX * gridScaleMulX) >> 8;
-		objectMesh[i]->gridScaleY = (objectMesh[i]->gridScaleY * gridScaleMulY) >> 8;
-		objectMesh[i]->gridScaleZ = (objectMesh[i]->gridScaleZ * gridScaleMulZ) >> 8;
-	}
-
-	centeredViewPos.z = mapZ[mapIndex];
+	initValuesMapZ();
 
 	tilemap3dInit();
 
