@@ -4,6 +4,8 @@
 #include "types.h"
 #include "vector.h"
 
+#define POLY_MODE_SORT (1 << 0)
+#define POLY_MODE_CPU_BACKFACE (1 << 1)
 typedef struct Mesh
 {
 	int numVerts, numLines, numPolys;
@@ -21,6 +23,7 @@ typedef struct Mesh
 	uint8 *polyColor;
 
 	int renderMode;
+	int polyMode;
 	int gridScaleX, gridScaleY, gridScaleZ;
 	int gridRange;
 

@@ -13,11 +13,9 @@
 #define NUM_POINTS_GRID_HALF 8
 #define NUM_POINTS_AXIS (2*NUM_POINTS_GRID_HALF+1)
 
-#define REC_FPSHR 20
-static int32 recZ[Z_FAR];
+int32 recZ[Z_FAR];
 
 int sinTab[SINTAB_SIZE];
-
 static int rotMat[9];
 
 static Vec3 axisX, axisY, axisZ;
@@ -183,24 +181,103 @@ static void translateAndProjectMesh(Mesh *ms)
     do {
 		int z = src->z + posZ;
 
-		//if (z >= Z_NEAR) {
+		if (z >= Z_NEAR) {
             const int x = src->x + posX;
             const int y = src->y + posY;
 
-			//if (z > Z_FAR) z = Z_FAR;
+			if (z >= Z_FAR) z = Z_FAR-1;
 			int32 rcz = recZ[z];
 
 			dst->x = (SCR_W << SCR_BITS) / 2 + (((x << PROJ_BITS) * rcz) >> (REC_FPSHR - SCR_BITS));
 			dst->y = (SCR_H << SCR_BITS) / 2 - (((y << PROJ_BITS) * rcz) >> (REC_FPSHR - SCR_BITS));
-		//}
+		}
 		dst->z = z;
 		++src;
 		++dst;
 	} while(--count != 0);
 }
 
-static void renderSortedMeshPolys(Mesh *ms, uint8 *vram)
+static void updateFaceOrderPolysVis(Mesh *ms)
 {
+	int *src = ms->polyIndices;
+	const int count = ms->numPolys;
+	for (int i=0; i<count; ++i) {
+		int polyIsVis = 0;
+
+		int edgesNum = *src++;
+		if (edgesNum >= 3) {
+			ScreenPoint *p0 = &scrPoints[src[0]];
+			ScreenPoint *p1 = &scrPoints[src[1]];
+			ScreenPoint *p2 = &scrPoints[src[2]];
+
+			int faceOrder = (p0->x - p1->x) * (p2->y - p1->y) - (p2->x - p1->x) * (p0->y - p1->y);
+			if (faceOrder >= 0) {
+				polyIsVis = 1;
+			}
+		}
+		scrPolyVis[i] = polyIsVis;
+
+		src += edgesNum;
+	}
+}
+
+static void renderMeshPolysSorted(Mesh *ms, uint8 *vram)
+{
+	#ifdef ANTIALIASING_POLY
+		updateFaceOrderPolysVis(ms);
+	#endif
+
+	// clear all entries from previously
+	for (int i=zBucketIndexMin; i<=zBucketIndexMax; ++i) {
+		zBucket[i].count = 0;
+	}
+	zBucketIndexMin = Z_BUCKETS_NUM;
+	zBucketIndexMax = 0;
+
+	int *src = ms->polyIndices;
+	bool needsCpuBackface = (ms->polyMode & POLY_MODE_CPU_BACKFACE) != 0;
+	int polyIndexBase = 0;
+
+	const int count = ms->numPolys;
+
+	for (int i=0; i<count; ++i) {
+		int edgesNum = *src++;
+		if (edgesNum >= 3) {
+			ScreenPoint *p0 = &scrPoints[src[0]];
+			ScreenPoint *p1 = &scrPoints[src[1]];
+			ScreenPoint *p2 = &scrPoints[src[2]];
+	
+			#ifdef ANTIALIASING_POLY
+				if (scrPolyVis[i] != 0) {
+			#else
+				if (!needsCpuBackface || (p0->x - p1->x) * (p2->y - p1->y) - (p2->x - p1->x) * (p0->y - p1->y) > 0) {
+			#endif
+				int avgZ = (p0->z + p1->z + 2 * p2->z) >> 2; // adding p2 twice as hack, enough for crude innacurate z average
+
+				if (avgZ < 0) avgZ = 0;
+
+				// find bucket index
+				int zBucketIndex = avgZ / Z_BUCKET_RANGE;
+				if (zBucketIndex > Z_BUCKETS_NUM - 1) zBucketIndex = Z_BUCKETS_NUM - 1;
+
+				if (zBucketIndex < zBucketIndexMin) zBucketIndexMin = zBucketIndex;
+				if (zBucketIndex > zBucketIndexMax) zBucketIndexMax = zBucketIndex;
+
+				// add it
+				ZBucket *zb = &zBucket[zBucketIndex];
+				const int zbCount = zb->count;
+				if (zbCount < Z_BUCKET_MAX_POLYS) {
+					zb->polyIndex[zbCount] = i;
+					zb->polyIndexOffset[zbCount] = polyIndexBase;
+					zb->count++;
+				}
+			}
+		}
+
+		src += edgesNum;
+		polyIndexBase += edgesNum + 1;
+	}
+
 	static ScreenPoint *p[16];
 	static uint8 edgeAdjacentPolysNum[16];
 
@@ -244,86 +321,46 @@ static void renderSortedMeshPolys(Mesh *ms, uint8 *vram)
 	}
 }
 
-static void updateFaceOrderPolysVis(Mesh *ms)
+static void renderMeshPolys(Mesh* ms, uint8 *vram)
 {
-	int *src = ms->polyIndices;
-	const int count = ms->numPolys;
-	for (int i=0; i<count; ++i) {
-		int polyIsVis = 0;
+	static ScreenPoint* p[16];
+	static uint8 edgeAdjacentPolysNum[16];
 
-		int edgesNum = *src++;
-		if (edgesNum >= 3) {
-			ScreenPoint *p0 = &scrPoints[src[0]];
-			ScreenPoint *p1 = &scrPoints[src[1]];
-			ScreenPoint *p2 = &scrPoints[src[2]];
+	int* src = ms->polyIndices;
+	bool needsCpuBackface = (ms->polyMode & POLY_MODE_CPU_BACKFACE) != 0;
 
-			int faceOrder = (p0->x - p1->x) * (p2->y - p1->y) - (p2->x - p1->x) * (p0->y - p1->y);
-			if (faceOrder >= 0) {
-				polyIsVis = 1;
-			}
-		}
-		scrPolyVis[i] = polyIsVis;
-
-		src += edgesNum;
-	}
-}
-
-static void renderMeshPolys(Mesh *ms, uint8 *vram)
-{
-	#ifdef ANTIALIASING_POLY
-		updateFaceOrderPolysVis(ms);
-	#endif
-
-	// clear all entries from previously
-	for (int i=zBucketIndexMin; i<=zBucketIndexMax; ++i) {
-		zBucket[i].count = 0;
-	}
-	zBucketIndexMin = Z_BUCKETS_NUM;
-	zBucketIndexMax = 0;
-
-	int *src = ms->polyIndices;
-	int polyIndexBase = 0;
+	int *edgeToAdjacentPoly = &ms->edgeToPolyIndices[0];
 
 	const int count = ms->numPolys;
-
-	for (int i=0; i<count; ++i) {
+	for (int i = 0; i < count; ++i) {
 		int edgesNum = *src++;
 		if (edgesNum >= 3) {
-			ScreenPoint *p0 = &scrPoints[src[0]];
-			ScreenPoint *p1 = &scrPoints[src[1]];
-			ScreenPoint *p2 = &scrPoints[src[2]];
-	
-			#ifdef ANTIALIASING_POLY
-				if (scrPolyVis[i] != 0) {
-			#else
-				if ((p0->x - p1->x) * (p2->y - p1->y) - (p2->x - p1->x) * (p0->y - p1->y) > 0) {
-			#endif
-				int avgZ = (p0->z + p1->z + 2 * p2->z) >> 2; // adding p2 twice as hack, enough for crude innacurate z average
+			for (int n=0; n<edgesNum; ++n) {
+				p[n] = &scrPoints[src[n]];
+				if (p[n]->z <= 0) continue;	// one point negative z? Not handling clip with near yet..
+			}
 
-				if (avgZ < 0) avgZ = 0;
+			uint8 color = ms->polyColor[i] - 1;
 
-				// find bucket index
-				int zBucketIndex = avgZ / Z_BUCKET_RANGE;
-				if (zBucketIndex > Z_BUCKETS_NUM - 1) zBucketIndex = Z_BUCKETS_NUM - 1;
+			if (!needsCpuBackface || (p[0]->x - p[1]->x) * (p[2]->y - p[1]->y) - (p[2]->x - p[1]->x) * (p[0]->y - p[1]->y) > 0) {
+				#ifndef ANTIALIASING_POLY
+					drawPoly(p, edgesNum, color, vram);
+				#else
+					for (int n=0; n<edgesNum; ++n) {
+						int p0 = *edgeToAdjacentPoly++;
+						int p1 = *edgeToAdjacentPoly++;
 
-				if (zBucketIndex < zBucketIndexMin) zBucketIndexMin = zBucketIndex;
-				if (zBucketIndex > zBucketIndexMax) zBucketIndexMax = zBucketIndex;
-
-				// add it
-				ZBucket *zb = &zBucket[zBucketIndex];
-				const int zbCount = zb->count;
-				if (zbCount < Z_BUCKET_MAX_POLYS) {
-					zb->polyIndex[zbCount] = i;
-					zb->polyIndexOffset[zbCount] = polyIndexBase;
-					zb->count++;
-				}
+						uint8 adjacentPolys = 0;
+						if (scrPolyVis[p0]!=0) ++adjacentPolys;
+						if (scrPolyVis[p1]!=0) ++adjacentPolys;
+						edgeAdjacentPolysNum[n] = adjacentPolys;
+					}
+					drawPolyAntialiased(p, edgeAdjacentPolysNum, edgesNum, color, vram);
+				#endif
 			}
 		}
-
 		src += edgesNum;
-		polyIndexBase += edgesNum + 1;
 	}
-	renderSortedMeshPolys(ms, vram);
 }
 
 static void renderMeshLines(Mesh *ms, uint8 *vram)
@@ -440,7 +477,11 @@ void renderMesh(Mesh *ms, Screen *screen, int rotMatType)
 		break;
 
 		case RENDER_POLYS:
-			renderMeshPolys(ms, vram);
+			if (ms->polyMode & POLY_MODE_SORT) {
+				renderMeshPolysSorted(ms, vram);
+			} else {
+				renderMeshPolys(ms, vram);
+			}
 		break;
 
 		default:

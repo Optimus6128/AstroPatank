@@ -36,7 +36,6 @@ bool updateInputType1(GameThing *gt, int dt)
 	bool collided = false;
 
 	Vec3 *pos = &gt->pos;
-	Vec3 *rot = &gt->rot;
 
 	int prevPlayerPosX = pos->x;
 	int prevPlayerPosY = pos->y;

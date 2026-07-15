@@ -5,6 +5,6 @@
 #include "game.h"
 
 void menuInit();
-void menuRun(Screen *screen, int t);
+void menuRun(Screen *screen, int t, int dt);
 
 #endif

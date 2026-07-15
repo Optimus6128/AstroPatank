@@ -525,7 +525,7 @@ static void updateSpawning()
 }
 
 
-static void updateGameplay()
+static void updateGameplay(int dt)
 {
 	updateSpawning();
 	updateNarcs();
@@ -951,17 +951,18 @@ static void updateGameInput(int dt)
 
 void gameRun(Screen *screen, int t)
 {
-	static int t0 = 0;
+	static int t0 = t;
+	int dt = t - t0;
 
 	clearScreen(screen);
 
 	if (isInGame) {
-		updateGameInput(t - t0);
-		updateGameplay();
+		updateGameInput(dt);
+		updateGameplay(dt);
 		updateScene3D(screen);
 		updateUI(screen, t);
 	} else {
-		menuRun(screen, t);
+		menuRun(screen, t, dt);
 	}
 	
 #ifdef SHOW_PALETTE

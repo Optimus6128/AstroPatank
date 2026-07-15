@@ -7,6 +7,7 @@
 
 #define Z_NEAR 32
 #define Z_FAR 32768
+#define REC_FPSHR 20
 
 #define MAX_VERTEX_POINTS 128
 #define MAX_POLYS 64
@@ -27,6 +28,7 @@
 
 #define SHADE_ALPHA_BITS 6
 #define SHADE_ALPHA_MAX (1 << SHADE_ALPHA_BITS)
+
 
 #define ANGLE_BITS 12
 #define SINTAB_SIZE (1 << ANGLE_BITS)
@@ -59,6 +61,7 @@ typedef struct ScreenPoint
 
 extern int sinTab[SINTAB_SIZE];
 
+extern int32 recZ[Z_FAR];
 void initEngine();
 void renderMesh(Mesh *ms, Screen *screen, int rotMatType);
 

@@ -57,7 +57,6 @@ static int titlePatankMeshIndex[PATANK_LETTERS_NUM] = { OBJ_LETTER_P, OBJ_LETTER
 static Vec3 titleAstroPos[ASTRO_LETTERS_NUM];
 static Vec3 titlePatankPos[PATANK_LETTERS_NUM];
 
-static bool cameFromGame = true;	// what a hack I am bored
 static bool menuFinallyOn = false;
 
 static int accelerateIntro = 256;
@@ -114,19 +113,23 @@ static void inputMenu()
 	startPressed = buttonsHeld.start;
 }
 
-static void updateStars(Screen *screen, int t)
+static void updateStars(Screen *screen, int dt)
 {
 	for (int i=0; i<NUM_STARS; ++i) {
 		Vec3 *pos = &stars[i].pos;
 		Vec3 *vel = &stars[i].vel;
 
-		*pos += *vel;
+		pos->z += (vel->z * dt) >> 4;
 
 		if (pos->z < STAR_NEAR) pos->z = STAR_FAR;
 		if (pos->z > STAR_FAR) continue; //pos->z = STAR_NEAR;
 
-		int sx = (pos->x << (PROJ_BITS + SCR_BITS)) / pos->z + (SCR_W << SCR_BITS) / 2;
-		int sy = (SCR_H << SCR_BITS) / 2 - (pos->y << (PROJ_BITS + SCR_BITS)) / pos->z;
+		int rcz = recZ[pos->z];
+
+
+
+		int sx = (SCR_W << SCR_BITS) / 2 + (((pos->x << PROJ_BITS) * rcz) >> (REC_FPSHR - SCR_BITS));
+		int sy = (SCR_H << SCR_BITS) / 2 - (((pos->y << PROJ_BITS) * rcz) >> (REC_FPSHR - SCR_BITS));
 
 		if (sx >= 0 && sx < ((SCR_W-1) << SCR_BITS) && sy >= 0 && sy < ((SCR_H-1) << SCR_BITS)) {
 			int alphaShade = (STAR_FAR - pos->z) >> 3;
@@ -140,7 +143,7 @@ static Vec3 interpolateVec(Vec3 &src, Vec3 &dst, int dt)
 {
 	Vec3 v;
 
-	if (dt > (1 << TITLE_INTERP_BITS)) dt = 1 << TITLE_INTERP_BITS;
+	if (dt > (1 << TITLE_INTERP_BITS)) return dst;
 	int ddt = (1 << TITLE_INTERP_BITS) - dt;
 
 	v.x = (src.x * ddt + dst.x * dt) >> TITLE_INTERP_BITS;
@@ -238,6 +241,7 @@ void menuInit()
 {
 	for (int i=0; i<NUM_MESHES; ++i) {
 		objMesh[i] = initMeshFromCPCdata(objMeshData[i]);
+		objMesh[i]->polyMode &= ~POLY_MODE_SORT;
 	}
 
 	initStars();
@@ -245,11 +249,11 @@ void menuInit()
 	initTitleLetters();
 }
 
-void menuRun(Screen *screen, int t)
+void menuRun(Screen *screen, int t, int dt)
 {
 	static int tStart = t;
 
-	updateStars(screen, t);
+	updateStars(screen, dt);
 
 	update3D(screen, t, (accelerateIntro * (t - tStart)) >> 8);
 	if (!menuFinallyOn && accelerateIntro > 256) accelerateIntro+=16;

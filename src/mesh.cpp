@@ -179,6 +179,7 @@ Mesh* initMeshFromCPCdata(int8 *data)
 	ms->rot = Vec3(0,0,0);
 
 	ms->renderMode = RENDER_POLYS;
+	ms->polyMode = POLY_MODE_SORT | POLY_MODE_CPU_BACKFACE;
 	ms->gridRange = DEFAULT_CPC_GRID_RANGE;
 	ms->gridScaleX = ms->gridScaleY = ms->gridScaleZ = DEFAULT_CPC_GRID_SCALE;
 
@@ -258,6 +259,7 @@ Mesh* initMesh(int numVerts, int numLines, int numTriangles, int numQuads, bool 
 	}
 
 	ms->renderMode = RENDER_POLYS;
+	ms->polyMode = POLY_MODE_SORT | POLY_MODE_CPU_BACKFACE;
 	ms->gridRange = gridRange;
 	ms->gridScaleX = ms->gridScaleY = ms->gridScaleZ = gridScale;
 
