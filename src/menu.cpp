@@ -34,12 +34,6 @@ enum {
 	MENU_MAIN,
 	MENU_DIFFICULTY,
 	MENUS_NUM
-
-
-
-
-
-
 };
 
 #define MENU_MAIN_ITEMS 2
@@ -49,7 +43,7 @@ static const char* menuMain[MENU_MAIN_ITEMS] = { "Start", "Quit" };
 static const char* menuDifficulty[MENU_DIFFICULTY_ITEMS] = { "Easy", "Medium", "Hard" };
 static int menuItemPosX[MENUS_NUM][3] = { {120,128,0}, {128,112,128} };
 
-MenuInfo menuInfo[MENUS_NUM] = {{MENU_MAIN_ITEMS, 0, menuMain}, {MENU_DIFFICULTY_ITEMS, 1, menuDifficulty}};
+static MenuInfo menuInfo[MENUS_NUM] = {{MENU_MAIN_ITEMS, 0, menuMain}, {MENU_DIFFICULTY_ITEMS, 1, menuDifficulty}};
 
 static int menuSelect = 0;
 
@@ -247,7 +241,7 @@ static void renderMenu(Screen *screen)
 
 	MenuInfo* mi = &menuInfo[menuSelect];
 	int* miPosX = menuItemPosX[menuSelect];
-	int posY = SCR_H - 52 + - ((mi->numItems * 24) >> 1);
+	int posY = SCR_H - 36 - ((mi->numItems * 24) >> 1);
 
 	for (int i=0; i<mi->numItems; ++i) {
 		uint8 colOffset = 0;
