@@ -19,7 +19,37 @@
 
 #include "meshdata.h"
 
-static const char* menuOptions[] = { "Start", "Quit" };
+typedef struct MenuInfo
+{
+	int numItems;
+	int optionIndex;
+	const char** labels;
+} MenuInfo;
+
+
+
+
+
+enum {
+	MENU_MAIN,
+	MENU_DIFFICULTY,
+	MENUS_NUM
+
+
+
+
+
+
+};
+
+#define MENU_MAIN_ITEMS 2
+#define MENU_DIFFICULTY_ITEMS 3
+
+static const char* menuMain[MENU_MAIN_ITEMS] = { "Start", "Quit" };
+static const char* menuDifficulty[MENU_DIFFICULTY_ITEMS] = { "Easy", "Medium", "Hard" };
+static int menuItemPosX[MENUS_NUM][3] = { {120,128,0}, {128,112,128} };
+
+MenuInfo menuInfo[MENUS_NUM] = {{MENU_MAIN_ITEMS, 0, menuMain}, {MENU_DIFFICULTY_ITEMS, 1, menuDifficulty}};
 
 static int menuSelect = 0;
 
@@ -81,10 +111,10 @@ static void inputMenu()
 
 	if (menuFinallyOn) {
 		if (buttonsHeld.up & !upPressed) {
-			if (menuSelect > 0) menuSelect = 0;
+			if (menuInfo[menuSelect].optionIndex > 0) menuInfo[menuSelect].optionIndex--;
 		}
 		if (buttonsHeld.down & !downPressed) {
-			if (menuSelect < 1) menuSelect = 1;
+			if (menuInfo[menuSelect].optionIndex < menuInfo[menuSelect].numItems - 1) menuInfo[menuSelect].optionIndex++;
 		}	
 		if (buttonsHeld.left & !leftPressed) {
 		}
@@ -92,10 +122,28 @@ static void inputMenu()
 		}
 
 		if ((buttonsHeld.fire & !firePressed) || (buttonsHeld.start & !startPressed)) {
-			if (menuSelect==0) {
-				setIsInGame(true);
-			} else {
-				setGameQuit(true);
+			int optionSelectIndex = menuInfo[menuSelect].optionIndex;
+
+			switch (menuSelect) {
+				case MENU_MAIN:
+					if (optionSelectIndex == 0) {
+						menuSelect = MENU_DIFFICULTY;
+					}
+					else {
+						setGameQuit(true);
+					}
+				break;
+
+				case MENU_DIFFICULTY:
+					initNewGameStart(optionSelectIndex);
+					setIsInGame(true);
+				break;
+			}
+		}
+
+		if (isJoyButtonPressedOnce(JOY_BUTTON_B)) {
+			if (menuSelect == MENU_DIFFICULTY) {
+				menuSelect = MENU_MAIN;
 			}
 		}
 	} else {
@@ -197,10 +245,14 @@ static void renderMenu(Screen *screen)
 {
 	uint8 *vram = (uint8*)screen->data;
 
-	for (int i=0; i<2; ++i) {
+	MenuInfo* mi = &menuInfo[menuSelect];
+	int* miPosX = menuItemPosX[menuSelect];
+	int posY = SCR_H - 52 + - ((mi->numItems * 24) >> 1);
+
+	for (int i=0; i<mi->numItems; ++i) {
 		uint8 colOffset = 0;
-		if (menuSelect!=i) colOffset = 16;
-		drawText(120 + i * 8, 144 + i * 24, menuOptions[i], colOffset, 1, vram);
+		if (mi->optionIndex!=i) colOffset = 16;
+		drawText(miPosX[i], posY + i * 24, mi->labels[i], colOffset, 1, vram);
 	}
 }
 

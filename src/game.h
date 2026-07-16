@@ -51,6 +51,7 @@ void setIsInGame(bool inGame);
 bool getIsInGame();
 void setGameQuit(bool quit);
 bool isGameQuit();
+void initNewGameStart(int difficulty);
 
 void startGameMusic(int musIndex);
 

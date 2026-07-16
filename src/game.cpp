@@ -110,8 +110,10 @@ static bool mustUpdateLives = true;
 static bool mustUpdatePower = true;
 static int score = 0;
 static int rings = 0;
-static int energy = MAX_ENERGY * ENERGY_SCALER;
-static int shield = MAX_SHIELD * ENERGY_SCALER;
+static int energy;
+static int shield;
+static int energyFull;
+static int shieldFull;
 static int power = 0;
 static int lives = 3;
 
@@ -135,7 +137,7 @@ static int playerLaserTime = 0;
 
 static Vec3 centeredViewPos;
 
-static int mapZ[] = { GROUND_Z, MID_Z, FAR_Z, MAP_OUT_Z };
+static int mapZ[MAP_INDEX_SIZE] = { GROUND_Z, MID_Z, FAR_Z, MAP_OUT_Z };
 static int tileZ[MAP_INDEX_SIZE];
 static uint8 mapIndex = 1;
 
@@ -423,9 +425,9 @@ static void updateItems(int dt)
 			gt->rot.x += tx;
 			gt->rot.y += ty;
 			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
-				if (energy < MAX_ENERGY * ENERGY_SCALER) {
+				if (energy < energyFull) {
 					energy += 2 * ENERGY_SCALER;
-					if (energy > MAX_ENERGY * ENERGY_SCALER) energy = MAX_ENERGY * ENERGY_SCALER;
+					if (energy > energyFull) energy = energyFull;
 					gt->alive = false;
 					gt->spawn = getRandomAntiSpawn(ANTI_SPAWN_ENERGY);
 					playSound(SOUND_HEALTH_PICKUP);
@@ -440,9 +442,9 @@ static void updateItems(int dt)
 			gt->rot.x += tx;
 			gt->rot.y += ty;
 			if (gtPlayer->alive && checkThingThingCollision(gt, gtPlayer)) {
-				if (shield < MAX_SHIELD * ENERGY_SCALER) {
+				if (shield < shieldFull) {
 					shield += 4 * ENERGY_SCALER;
-					if (shield > MAX_SHIELD * ENERGY_SCALER) shield = MAX_SHIELD * ENERGY_SCALER;
+					if (shield > shieldFull) shield = shieldFull;
 					gt->alive = false;
 					gt->spawn = getRandomAntiSpawn(ANTI_SPAWN_ENERGY);
 					playSound(SOUND_HEALTH_PICKUP);
@@ -511,8 +513,8 @@ static void updateSpawning()
 				gt->alive = true;
 				if (i==PLAYER_THING_BASE) {
 					if (--lives>0) {
-						energy = MAX_ENERGY * ENERGY_SCALER;
-						shield = MAX_SHIELD * ENERGY_SCALER;
+						energy = energyFull;
+						shield = shieldFull;
 
 						playerHit.justHit = false;
 						playerHit.damage = 0;
@@ -907,9 +909,13 @@ static void initSoundFx()
 	setupSound(6, 6144, 28000, SOUND_LASER_PUFF);
 }
 
-static void restartGameIfEnded()
+static int difficultyBits;
+
+void initNewGameStart(int difficulty)
 {
-	if (!gameOver && !youWin) return;
+	difficultyBits = difficulty;
+	energyFull = energy = (MAX_ENERGY * ENERGY_SCALER) >> difficultyBits;
+	shieldFull = shield = (MAX_SHIELD * ENERGY_SCALER) >> difficultyBits;
 
 	mustUpdateScore = true;
 	mustUpdateRings = true;
@@ -917,8 +923,6 @@ static void restartGameIfEnded()
 	mustUpdatePower = true;
 	score = 0;
 	rings = 0;
-	energy = MAX_ENERGY * ENERGY_SCALER;
-	shield = MAX_SHIELD * ENERGY_SCALER;
 	power = 0;
 	lives = 3;
 
@@ -970,9 +974,7 @@ void setIsInGame(bool inGame)
 
 	switchGameMusic();
 
-	if (inGame) {
-		restartGameIfEnded();
-	}
+
 }
 
 bool getIsInGame()
