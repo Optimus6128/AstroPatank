@@ -141,7 +141,7 @@ static void inputMenu()
 			}
 		}
 
-		if (isJoyButtonPressedOnce(JOY_BUTTON_B)) {
+		if ((buttonsHeld.escape & !escapePressed)) {
 			if (menuSelect == MENU_DIFFICULTY) {
 				menuSelect = MENU_MAIN;
 			}
