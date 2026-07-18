@@ -738,38 +738,44 @@ static void setupPalette3D()
 	makeAndSetPal(240,255, 0,0,0, 63,63,63);
 }
 
-static void renderObject(int i, Screen *screen)
+static void renderObjectsInLayer(int *layerSrc, int layerCount, Screen *screen)
 {
-	GameThing *gt = &thing[i];
-	Mesh *ms = gt->mesh;
-	if (!ms) return;
+	if (!layerCount) return;
 
-	ms->pos.x = (gt->pos.x >> PPOS_BITS) - centeredViewPos.x;
-	ms->pos.y = centeredViewPos.y - (gt->pos.y >> PPOS_BITS);
-	ms->pos.z = centeredViewPos.z - (gt->pos.z >> PPOS_BITS);
+	int thingZeroPosZ = centeredViewPos.z - (thing[layerSrc[0]].pos.z >> PPOS_BITS);	// a bit of hack now when all objects are on same layer 0 with same pos.z to hopefully gain a bit of performance
+	// Previously I was recalculating edgeX/Y inside the loop. In the future though if things can fly up, I need to change this. Or I could make a crude table of edge values for the 4 layers (even better?)
+	const int edgeTileHalf = tileZ[mapIndex] >> 1;
+	int edgeX = ((SCR_W / 2 + edgeTileHalf) * thingZeroPosZ) >> PROJ_BITS;
+	int edgeY = ((SCR_H / 2 + edgeTileHalf) * thingZeroPosZ) >> PROJ_BITS;
 
-	int edgeTileHalf = tileZ[mapIndex] >> 1;
+	for (int i = 0; i < layerCount; ++i) {
+		GameThing* gt = &thing[layerSrc[i]];
+		Mesh* ms = gt->mesh;
+		if (!ms) continue;
 
-	int edgeX = ((SCR_W/2 + edgeTileHalf) * ms->pos.z) >> PROJ_BITS;
-	int edgeY = ((SCR_H/2 + edgeTileHalf) * ms->pos.z) >> PROJ_BITS;
-	if (ms->pos.x < -edgeX || ms->pos.x > edgeX || 
-		ms->pos.y < -edgeY || ms->pos.y > edgeY) return;
+		ms->pos.x = (gt->pos.x >> PPOS_BITS) - centeredViewPos.x;
+		ms->pos.y = centeredViewPos.y - (gt->pos.y >> PPOS_BITS);
+		ms->pos.z = centeredViewPos.z - (gt->pos.z >> PPOS_BITS);
 
-	ms->rot = gt->rot;
+		if (ms->pos.x < -edgeX || ms->pos.x > edgeX ||
+			ms->pos.y < -edgeY || ms->pos.y > edgeY) continue;
 
-	int backX = ms->gridScaleX;
-	int backY = ms->gridScaleY;
-	int backZ = ms->gridScaleZ;
+		ms->rot = gt->rot;
 
-	ms->gridScaleX = gt->spawnMeshScale.x;
-	ms->gridScaleY = gt->spawnMeshScale.y;
-	ms->gridScaleZ = gt->spawnMeshScale.z;
+		int backX = ms->gridScaleX;
+		int backY = ms->gridScaleY;
+		int backZ = ms->gridScaleZ;
 
-	renderMesh(ms, screen, MAT_XY);
+		ms->gridScaleX = gt->spawnMeshScale.x;
+		ms->gridScaleY = gt->spawnMeshScale.y;
+		ms->gridScaleZ = gt->spawnMeshScale.z;
 
-	ms->gridScaleX = backX;
-	ms->gridScaleY = backY;
-	ms->gridScaleZ = backZ;
+		renderMesh(ms, screen, MAT_XY);
+
+		ms->gridScaleX = backX;
+		ms->gridScaleY = backY;
+		ms->gridScaleZ = backZ;
+	}
 }
 
 static void updateThingsLayerLists()
@@ -802,13 +808,11 @@ static void updateScene3D(Screen *screen)
 			renderTilemap3dLayer(&centeredViewPos, n, screen, gateOpened);
 		}
 
-		if (n==0) renderParticles(-playerPosX, -playerPosY, centeredViewPos.z, (uint8*)screen->data);
-
-		const int layerCount = layerObjCount[n];
-		int *layerSrc = objsInLayer[n];
-		for (int i=0; i<layerCount; ++i) {
-			renderObject(layerSrc[i], screen);
+		if (n==0) {
+			renderParticles(-playerPosX, -playerPosY, centeredViewPos.z, (uint8*)screen->data);
 		}
+
+		renderObjectsInLayer(objsInLayer[n], layerObjCount[n], screen);
 	}
 }
 
