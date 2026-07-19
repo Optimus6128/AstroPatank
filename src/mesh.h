@@ -6,6 +6,7 @@
 
 #define POLY_MODE_SORT (1 << 0)
 #define POLY_MODE_CPU_BACKFACE (1 << 1)
+
 typedef struct Mesh
 {
 	int numVerts, numLines, numPolys;
@@ -33,6 +34,7 @@ typedef struct Mesh
 
 Mesh* initMesh(int numVerts, int numLines, int numTriangles, int numQuads, bool gridBased, int gridRange, int gridScale);
 Mesh* initMeshFromCPCdata(int8 *data);
+void convertMeshFromGridPointsToVertices(Mesh* ms);
 void reversePolygonOrder(Mesh *ms);
 
 #endif

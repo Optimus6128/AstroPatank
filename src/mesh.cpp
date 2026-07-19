@@ -132,6 +132,23 @@ static int getElementsSizeForCPCpolyData(int8 *data, int numPolys)
 	return numElements;
 }
 
+void convertMeshFromGridPointsToVertices(Mesh* ms)
+{
+	if (!ms->vertexPoints) {
+		ms->vertexPoints = (Vec3*)malloc(ms->numVerts * sizeof(Vec3));
+	}
+
+	int8* src = ms->gridPoints;
+	for (int i = 0; i < ms->numVerts; ++i) {
+		ms->vertexPoints[i].x = ((int)*src++ * ms->gridScaleX) * ((1 << AMPLITUDE_BITS) / DEFAULT_CPC_GRID_SCALE);
+		ms->vertexPoints[i].y = ((int)*src++ * ms->gridScaleY) * ((1 << AMPLITUDE_BITS) / DEFAULT_CPC_GRID_SCALE);
+		ms->vertexPoints[i].z = ((int)*src++ * ms->gridScaleZ) * ((1 << AMPLITUDE_BITS) / DEFAULT_CPC_GRID_SCALE);
+	}
+
+	free(ms->gridPoints);
+	ms->gridPoints = NULL;
+}
+
 Mesh* initMeshFromCPCdata(int8 *data)
 {
 	Mesh *ms = (Mesh*)malloc(sizeof(Mesh));

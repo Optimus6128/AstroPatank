@@ -224,13 +224,13 @@ static void updateNarcs(int dt)
 			int prevPosX = gt->pos.x;
 			int prevPosY = gt->pos.y;
 
-			gt->pos.x += (gt->vel.x * dt) >> 4;
+			//gt->pos.x += (gt->vel.x * dt) >> 4;
 			if (checkThingMapCollision(gt)) {
 				gt->pos.x = prevPosX;
 				gt->vel.x = -gt->vel.x;
 			}
 
-			gt->pos.y += (gt->vel.y * dt) >> 4;
+			//gt->pos.y += (gt->vel.y * dt) >> 4;
 			if (checkThingMapCollision(gt)) {
 				gt->pos.y = prevPosY;
 				gt->vel.y = -gt->vel.y;
@@ -659,6 +659,8 @@ static void initMeshes()
 		objectMesh[i]->gridScaleX = (objectMesh[i]->gridScaleX * gridScaleMulX) >> 8;
 		objectMesh[i]->gridScaleY = (objectMesh[i]->gridScaleY * gridScaleMulY) >> 8;
 		objectMesh[i]->gridScaleZ = (objectMesh[i]->gridScaleZ * gridScaleMulZ) >> 8;
+
+		//convertMeshFromGridPointsToVertices(objectMesh[i]);
 	}
 }
 
