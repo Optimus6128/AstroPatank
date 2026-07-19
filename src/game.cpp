@@ -18,8 +18,6 @@
 #include "menu.h"
 #include "tile_3d.h"
 #include "vector.h"
-
-
 #include "engine.h"
 #include "render.h"
 #include "mesh.h"
@@ -601,14 +599,16 @@ static void initPlayerThing()
 	gt->rot.z = 0;
 
 	gt->spawn = SPAWN_FULL;
+	gt->needsPolySorting = false;
 }
 
-static void setRandomThingInMap(GameThing *gt, Mesh *mesh, uint8 layer, int spawn, bool moving)
+static void setRandomThingInMap(GameThing *gt, Mesh *mesh, uint8 layer, int spawn, bool moving, bool needsPolySorting)
 {
 	gt->mesh = mesh;
 	gt->size = TILE_SIZE / 4;
 	gt->spawn = spawn;
 	gt->alive = false;
+	gt->needsPolySorting = needsPolySorting;
 	setRandomThingPosition(gt, layer);
 	if (moving) setRandomThingVelocity(gt);
 }
@@ -674,26 +674,27 @@ static void initThings()
 		gt->size = TILE_SIZE / 4;
 		gt->alive = false;
 		gt->spawn = SPAWN_FULL;
+		gt->needsPolySorting = false;
 	}
 
 	for (int i=0; i<MAX_NARCS; ++i) {
-		setRandomThingInMap(&thing[NARC_THING_BASE + i], objectMesh[OBJ_CUBESTAR], 0, getRandomAntiSpawn(ANTI_SPAWN_NARC), true);
+		setRandomThingInMap(&thing[NARC_THING_BASE + i], objectMesh[OBJ_CUBESTAR], 0, getRandomAntiSpawn(ANTI_SPAWN_NARC), true, true);
 	}
 
 	for (int i=0; i<MAX_ENERGY_BONUS; ++i) {
-		setRandomThingInMap(&thing[ENERGY_BONUS_THING_BASE + i], objectMesh[OBJ_CROSS], 0, getRandomAntiSpawn(ANTI_SPAWN_ENERGY), true);
+		setRandomThingInMap(&thing[ENERGY_BONUS_THING_BASE + i], objectMesh[OBJ_CROSS], 0, getRandomAntiSpawn(ANTI_SPAWN_ENERGY), true, true);
 	}
 
 	for (int i=0; i<MAX_SHIELD_BONUS; ++i) {
-		setRandomThingInMap(&thing[SHIELD_BONUS_THING_BASE + i], objectMesh[OBJ_DRUM], 0, getRandomAntiSpawn(ANTI_SPAWN_ENERGY), true);
+		setRandomThingInMap(&thing[SHIELD_BONUS_THING_BASE + i], objectMesh[OBJ_DRUM], 0, getRandomAntiSpawn(ANTI_SPAWN_ENERGY), true, false);
 	}
 
 	for (int i=0; i<MAX_WEAPON_BONUS; ++i) {
-		setRandomThingInMap(&thing[WEAPON_BONUS_THING_BASE + i], objectMesh[OBJ_GLENZ], 0, getRandomAntiSpawn(ANTI_SPAWN_WEAPON), true);
+		setRandomThingInMap(&thing[WEAPON_BONUS_THING_BASE + i], objectMesh[OBJ_GLENZ], 0, getRandomAntiSpawn(ANTI_SPAWN_WEAPON), true, false);
 	}
 
 	for (int i=0; i<MAX_RING_BONUS; ++i) {
-		setRandomThingInMap(&thing[RING_BONUS_THING_BASE + i], objectMesh[OBJ_ROMBUS_RING], 0, getRandomAntiSpawn(ANTI_SPAWN_RING), true);
+		setRandomThingInMap(&thing[RING_BONUS_THING_BASE + i], objectMesh[OBJ_ROMBUS_RING], 0, getRandomAntiSpawn(ANTI_SPAWN_RING), true, false);
 	}
 
 	for (int i=0; i<NUM_THINGS; i++) {
@@ -769,6 +770,12 @@ static void renderObjectsInLayer(int *layerSrc, int layerCount, Screen *screen)
 		ms->gridScaleX = gt->spawnMeshScale.x;
 		ms->gridScaleY = gt->spawnMeshScale.y;
 		ms->gridScaleZ = gt->spawnMeshScale.z;
+
+		if (mapIndex >= MAP_INDEX_SIZE - 3 || !gt->needsPolySorting) {
+			ms->polyMode &= ~POLY_MODE_SORT;
+		} else {
+			ms->polyMode |= POLY_MODE_SORT;
+		}
 
 		renderMesh(ms, screen, MAT_XY);
 
@@ -917,6 +924,8 @@ static int difficultyBits;
 
 void initNewGameStart(int difficulty)
 {
+	srand(1234);
+
 	difficultyBits = difficulty;
 	energyFull = energy = (MAX_ENERGY * ENERGY_SCALER) >> difficultyBits;
 	shieldFull = shield = (MAX_SHIELD * ENERGY_SCALER) >> difficultyBits;

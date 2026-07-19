@@ -38,6 +38,7 @@ typedef struct GameThing
 	Vec3 pos, rot, vel;
 	int size;
 	Mesh *mesh;
+	bool needsPolySorting;
 	int spawn;
 	Vec3 spawnMeshScale;
 	bool alive;
